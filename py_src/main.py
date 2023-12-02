@@ -2,6 +2,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import time
+import sys
+sys.path.append("../build/src/Maze_cuda_functions/release")
+import cu_matrix_add
+
+A = np.random.randint(10, size=(2,3))
+B = np.random.randint(10, size=(2,3))
+
+print(A)
+print(B)
+
+C = cu_matrix_add.madd(A, B)
+print(C)
 
 # Create any maze layout you'd like, here's an example
 maze_layout = np.array([

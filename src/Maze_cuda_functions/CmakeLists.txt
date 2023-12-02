@@ -12,8 +12,6 @@ source_group("Headers" FILES ${HEADERS})
 cuda_add_library(${BLOCK_NAME} MODULE
 	pybind11_madd.cpp
 	madd.cu
-    pybind11_greedy_epsilon.cpp
-    greedy_epsilon.cu
 OPTIONS --cudart=shared -DWITH_OPENGL -DOPTIMIZATION_STEP=0x0 -lineinfo -arch sm_52 -use_fast_math -maxrregcount 104
 DEBUG -Xptxas -v -g -G 
 )
