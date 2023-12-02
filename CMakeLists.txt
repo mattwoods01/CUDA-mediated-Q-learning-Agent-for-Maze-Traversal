@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-project(Python2Cuda_example)
+project(Cuda_maze)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 set(TOP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
