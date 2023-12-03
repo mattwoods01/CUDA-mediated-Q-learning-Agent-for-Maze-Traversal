@@ -9,8 +9,18 @@
 #include <pybind11/numpy.h>
 
 extern void cu_madd(int* A, int* B, int* C, int M, int N);
+extern void epsilonGreedyCUDA(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end);
 
 namespace py = pybind11;
+
+
+float py_epsilonGreedyCUDA(int current_episode, int num_episodes, float exploration_start, float exploration_end) {
+	// Call the CUDA function to get the result
+	float result;
+	epsilonGreedyCUDA(&result, current_episode, num_episodes, exploration_start, exploration_end);
+
+	return result;
+}
 
 
 py::array_t<int> madd_wrapper(py::array_t<int> a1, py::array_t<int> a2) 
@@ -50,9 +60,9 @@ py::array_t<int> madd_wrapper(py::array_t<int> a1, py::array_t<int> a2)
 }
 
 
-
 PYBIND11_MODULE(cu_matrix_add, m) {
     m.def("madd", &madd_wrapper, "Add two NumPy arrays");
+    m.def("epsilon_greedy_cuda", &py_epsilonGreedyCUDA, "Compute epsilon-greedy exploration rates using CUDA");
 
 #ifdef VERSION_INFO
     m.attr("__version__") = VERSION_INFO;

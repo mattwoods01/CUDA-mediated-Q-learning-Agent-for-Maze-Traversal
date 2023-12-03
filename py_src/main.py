@@ -6,15 +6,6 @@ import sys
 sys.path.append("../build/src/Maze_cuda_functions/release")
 import cu_matrix_add
 
-A = np.random.randint(10, size=(2,3))
-B = np.random.randint(10, size=(2,3))
-
-print(A)
-print(B)
-
-C = cu_matrix_add.madd(A, B)
-print(C)
-
 # Create any maze layout you'd like, here's an example
 maze_layout = np.array([
     [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -95,7 +86,9 @@ class QLearningAgent:
         return self.exploration_start * (self.exploration_end / self.exploration_start) ** (current_episode / self.num_episodes)
 
     def get_action(self, state, current_episode): # State is tuple representing where agent is in maze (x, y)
-        exploration_rate = self.get_exploration_rate(current_episode)
+        exploration_rate = cu_matrix_add.epsilon_greedy_cuda(current_episode, self.num_episodes, self.exploration_start, self.exploration_end)
+        #exploration_rate = self.get_exploration_rate(current_episode)
+
         # Select an action for the given state either randomly (exploration) or using the Q-table (exploitation)
         if np.random.rand() < exploration_rate:
             return np.random.randint(4) # Choose a random action (index 0 to 3, representing Up, Down, Left, Right)
@@ -169,9 +162,9 @@ def test_agent(agent, maze, num_episodes=1):
     episode_reward, episode_step, path = finish_episode(agent, maze, num_episodes, train=False)
 
     # Print the learned path of the agent
-    print("Learned Path:")
-    for row, col in path:
-        print(f"({row}, {col})-> ", end='')
+    #print("Learned Path:")
+    #for row, col in path:
+    #    print(f"({row}, {col})-> ", end='')
     print("Goal!")
 
     print("Number of steps:", episode_step)
@@ -196,7 +189,7 @@ def test_agent(agent, maze, num_episodes=1):
     # Remove axis ticks and grid lines for a cleaner visualization
     plt.xticks([]), plt.yticks([])
     plt.grid(color='black', linewidth=2)
-    plt.show()
+    #plt.show()
 
     return episode_step, episode_reward, path
 
@@ -236,7 +229,7 @@ def train_agent(agent, maze, num_episodes=100):
     print(f"The average steps is: {average_steps}")
 
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
 # maze = Maze(maze_layout, (0, 0), (19, 19))
 # # maze.show_maze()
@@ -296,8 +289,8 @@ execution_time = end_time - start_time
 print(f"Execution time: {execution_time} seconds")
 episode_step, episode_reward, path = test_agent(agent, maze, num_episodes=num_episodes)
 # Create an instance of the maze animation
-maze_animation = MazeAnimation(maze, agent, num_episodes)
-plt.show()
+#maze_animation = MazeAnimation(maze, agent, num_episodes)
+#plt.show()
 
 
 

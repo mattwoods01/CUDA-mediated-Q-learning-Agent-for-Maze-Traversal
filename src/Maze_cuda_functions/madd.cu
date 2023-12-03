@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 __global__ void kernel_madd(int* A, int* B, int* C, int M, int N);
+__global__ void epsilonGreedyKernel(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end);
 
 void cu_madd(int* A, int* B, int* C, int M, int N)
 {
@@ -52,4 +53,30 @@ __global__ void kernel_madd(int* A, int* B, int* C, int M, int N)
 	if (ix < M && iy < N)
 		C[idx] = A[idx] + B[idx];
 }
+
+__global__
+void epsilonGreedyKernel(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end) {
+	int tid = blockIdx.x * blockDim.x + threadIdx.x;
+	if (tid == 0) {
+		exploration_rates[0] = exploration_start * pow(exploration_end / exploration_start, static_cast<float>(current_episode) / static_cast<float>(num_episodes));
+	}
+}
+
+void epsilonGreedyCUDA(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end) {
+	float* d_exploration_rates;
+
+	int dimx = 32;
+	dim3 block(dimx, 1);
+	dim3 grid((4 + block.x - 1) / block.x, 1);
+
+	cudaMalloc((void**)&d_exploration_rates, sizeof(float));
+	cudaMemcpy(d_exploration_rates, exploration_rates, sizeof(float), cudaMemcpyHostToDevice);
+	epsilonGreedyKernel << <32, block >> > (d_exploration_rates, current_episode, num_episodes, exploration_start, exploration_end);
+	cudaMemcpy(exploration_rates, d_exploration_rates, sizeof(float), cudaMemcpyDeviceToHost);
+
+	cudaFree(d_exploration_rates);
+	cudaDeviceSynchronize();
+}
+
+
 
