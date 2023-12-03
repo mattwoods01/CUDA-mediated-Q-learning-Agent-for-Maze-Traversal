@@ -1,0 +1,10 @@
+^C:\USERS\M3WOODS\DESKTOP\CUDA-MEDIATED-Q-LEARNING-AGENT-FOR-MAZE-TRAVERSAL\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal -BC:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/build --check-stamp-file C:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

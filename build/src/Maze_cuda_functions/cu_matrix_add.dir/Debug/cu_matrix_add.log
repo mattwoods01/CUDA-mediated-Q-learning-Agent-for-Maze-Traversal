@@ -1,0 +1,22 @@
+﻿  Building NVCC (Device) object src/Maze_cuda_functions/CMakeFiles/cu_matrix_add.dir/Debug/cu_matrix_add_generated_madd.cu.obj
+  madd.cu
+CUSTOMBUILD : nvcc warning : '--device-debug (-G)' overrides '--generate-line-info (-lineinfo)'
+CUSTOMBUILD : ptxas warning : Conflicting options --device-debug and --generate-line-info specified, ignoring --generate-line-info option
+  ptxas info    : 31 bytes gmem
+  ptxas info    : Compiling entry function '_Z11kernel_maddPiS_S_ii' for 'sm_52'
+  ptxas info    : Function properties for _Z11kernel_maddPiS_S_ii
+      8 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 26 registers, 352 bytes cmem[0]
+CUSTOMBUILD : nvcc warning : '--device-debug (-G)' overrides '--generate-line-info (-lineinfo)'
+  madd.cu
+  Building Custom Rule C:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/src/Maze_cuda_functions/CMakeLists.txt
+  Building NVCC intermediate link file src/Maze_cuda_functions/CMakeFiles/cu_matrix_add.dir/Debug/cu_matrix_add_intermediate_link.obj
+  cu_matrix_add_generated_madd.cu.obj
+  pybind11_madd.cpp
+C:\Users\m3woods\Desktop\CUDA-mediated-Q-learning-Agent-for-Maze-Traversal\src\Maze_cuda_functions\pybind11_madd.cpp(28,8): warning C4244: 'initializing': conversion from 'const pybind11::ssize_t' to 'int', possible loss of data
+C:\Users\m3woods\Desktop\CUDA-mediated-Q-learning-Agent-for-Maze-Traversal\src\Maze_cuda_functions\pybind11_madd.cpp(29,8): warning C4244: 'initializing': conversion from 'const pybind11::ssize_t' to 'int', possible loss of data
+     Creating library C:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/build/src/Maze_cuda_functions/Debug/cu_matrix_add.lib and object C:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/build/src/Maze_cuda_functions/Debug/cu_matrix_add.exp
+  Generating code
+  Not all modules are compiled with -Gy (function comdat), build without incremental LTCG.
+  Finished generating code
+  cu_matrix_add.vcxproj -> C:\Users\m3woods\Desktop\CUDA-mediated-Q-learning-Agent-for-Maze-Traversal\build\src\Maze_cuda_functions\Debug\cu_matrix_add.pyd

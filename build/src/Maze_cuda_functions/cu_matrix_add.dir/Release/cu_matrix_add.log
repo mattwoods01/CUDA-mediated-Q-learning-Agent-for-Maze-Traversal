@@ -1,0 +1,15 @@
+﻿  Building NVCC (Device) object src/Maze_cuda_functions/CMakeFiles/cu_matrix_add.dir/Release/cu_matrix_add_generated_madd.cu.obj
+  madd.cu
+  madd.cu
+  Building Custom Rule C:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/src/Maze_cuda_functions/CMakeLists.txt
+  Building NVCC intermediate link file src/Maze_cuda_functions/CMakeFiles/cu_matrix_add.dir/Release/cu_matrix_add_intermediate_link.obj
+  cu_matrix_add_generated_madd.cu.obj
+  pybind11_madd.cpp
+C:\Users\m3woods\Desktop\CUDA-mediated-Q-learning-Agent-for-Maze-Traversal\src\Maze_cuda_functions\pybind11_madd.cpp(38,8): warning C4244: 'initializing': conversion from 'const pybind11::ssize_t' to 'int', possible loss of data
+C:\Users\m3woods\Desktop\CUDA-mediated-Q-learning-Agent-for-Maze-Traversal\src\Maze_cuda_functions\pybind11_madd.cpp(39,8): warning C4244: 'initializing': conversion from 'const pybind11::ssize_t' to 'int', possible loss of data
+     Creating library C:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/build/src/Maze_cuda_functions/Release/cu_matrix_add.lib and object C:/Users/m3woods/Desktop/CUDA-mediated-Q-learning-Agent-for-Maze-Traversal/build/src/Maze_cuda_functions/Release/cu_matrix_add.exp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 2111 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  cu_matrix_add.vcxproj -> C:\Users\m3woods\Desktop\CUDA-mediated-Q-learning-Agent-for-Maze-Traversal\build\src\Maze_cuda_functions\Release\cu_matrix_add.pyd
