@@ -13,6 +13,7 @@
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed);
+__global__ void qLearningUpdateKernel(float* q_table, int state, int action, int next_state, float reward, float learning_rate, float discount_factor);
 
 __global__
 void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
@@ -42,7 +43,8 @@ void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float explora
     cudaDeviceSynchronize();
 }
 
-__device__ void dfs(int* maze_array, int height, int width, int x, int y, curandState* state) {
+__device__ 
+void dfs(int* maze_array, int height, int width, int x, int y, curandState* state) {
     // Mark the current cell as visited
     maze_array[y * width + x] = 0;
 
@@ -70,8 +72,8 @@ __device__ void dfs(int* maze_array, int height, int width, int x, int y, curand
     }
 }
 
-
-__global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed) {
+__global__ 
+void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed) {
     int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -103,7 +105,7 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, unsign
 void randomArrayCuda(int* maze_array, int height, int width, unsigned long long seed) {
     int* d_maze_array;
 
-    cudaMalloc((void**)&d_maze_array, height * width * sizeof(int));
+    cudaMalloc((void**)&d_maze_array, height * width * sizeof(float));
 
     int dimx = 32;
     int dimy = 32;
@@ -112,8 +114,59 @@ void randomArrayCuda(int* maze_array, int height, int width, unsigned long long 
 
     randomArrayKernel << <grid, block >> > (d_maze_array, height, width, seed);
 
-    cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(float), cudaMemcpyDeviceToHost);
 
     cudaFree(d_maze_array);
+    cudaDeviceSynchronize();
+}
+
+__global__
+void qLearningUpdateKernel(float* q_table, int state, int action, int next_state, float reward, float learning_rate, float discount_factor) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    int num_states = 20*20;
+
+    if (tid < num_states) {
+        for (int a = 0; a < num_actions; ++a) {
+            float max_q_value = q_table[next_state * num_states * num_actions + tid * num_actions];
+            int best_next_action = 0;
+
+            for (int b = 1; b < num_actions; ++b) {
+                float q_value = q_table[next_state * num_states * num_actions + tid * num_actions + b];
+                if (q_value > max_q_value) {
+                    max_q_value = q_value;
+                    best_next_action = b;
+                }
+            }
+
+            // Get the current Q-value for the current state and action
+            float current_q_value = q_table[state * num_states * num_actions + tid * num_actions + action];
+
+            // Q-value update using Q-learning formula
+            float new_q_value = current_q_value + learning_rate * (reward + discount_factor * max_q_value - current_q_value);
+
+            // Update the Q-table with the new Q-value for the current state and action
+            q_table[state * num_states * num_actions + tid * num_actions + action] = new_q_value;
+        }
+    }
+}
+
+void qLearningCUDA(float* q_table, int state, int action, int next_state, float reward, float learning_rate, float discount_factor) {
+    float* d_q_table;
+
+    cudaMalloc((void**)&d_q_table, 20 * 20 * 4 * sizeof(float));
+
+    cudaMemcpy(d_q_table, q_table, 20 * 20 * 4 * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Launch the kernel
+    int dimx = 32;
+    int blocks_per_grid = (20 + dimx - 1) / dimx;
+    dim3 block(dimx, 1);
+    dim3 grid(blocks_per_grid, 1);
+    qLearningUpdateKernel << <grid, block >> > (d_q_table, state, action, next_state, reward, learning_rate, discount_factor);
+
+    cudaMemcpy(q_table, d_q_table, 20 * 20 * 4 * sizeof(float), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_q_table);
     cudaDeviceSynchronize();
 }

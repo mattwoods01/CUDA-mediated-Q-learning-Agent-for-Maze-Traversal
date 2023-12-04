@@ -88,18 +88,29 @@ class QLearningAgent:
             return np.argmax(self.q_table[state]) # Choose the action with the highest Q-value for the given state
 
     def update_q_table(self, state, action, next_state, reward):
+        print(self.q_table.shape)
+        cu_matrix_add.q_learning_cuda(self.q_table, state, action, next_state, reward, self.learning_rate, self.discount_factor)
+
+
+
+
+
+
+
+
+        
 
         # Find the best next action by selecting the action that maximizes the Q-value for the next state
-        best_next_action = np.argmax(self.q_table[next_state])
+        #best_next_action = np.argmax(self.q_table[next_state])
 
         # Get the current Q-value for the current state and action
-        current_q_value = self.q_table[state][action]
+        #current_q_value = self.q_table[state][action]
 
         # Q-value update using Q-learning formula
-        new_q_value = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
+        #new_q_value = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
 
         # Update the Q-table with the new Q-value for the current state and action
-        self.q_table[state][action] = new_q_value
+        #self.q_table[state][action] = new_q_value
 
 def finish_episode(agent, maze, current_episode, train=True):
     # Initialize the agent's current state to the maze's start position
