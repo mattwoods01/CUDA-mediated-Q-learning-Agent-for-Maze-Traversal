@@ -44,7 +44,7 @@ class Maze:
         plt.figure(figsize=(5,5))
 
         # Display the maze as an image in grayscale ('gray' colormap)
-        cmap = mcolors.ListedColormap(['black', 'white'])
+        cmap = mcolors.ListedColormap(['white', 'black'])
         plt.imshow(self.maze, cmap=cmap)
 
         # Add start and goal positions as 'S' and 'G'
@@ -178,7 +178,7 @@ def test_agent(agent, maze, num_episodes=1):
 
     # Mark the agent's path with blue '#' symbols
     for position in path:
-        plt.text(position[0], position[1], "#", va='center', color='blue', fontsize=20)
+        plt.text(position[0], position[1], "X", va='center',ha='center', color='blue', fontsize=15)
 
     # Remove axis ticks and grid lines for a cleaner visualization
     plt.xticks([]), plt.yticks([])
@@ -235,11 +235,13 @@ class MazeAnimation:
         self.fig, self.ax = plt.subplots(figsize=(5, 5))
         # self.path = []
         self.animation = FuncAnimation(self.fig, self.update, frames=self.explore_maze, repeat=False, blit=False, interval=500)
+        #plt.show()
 
     def update(self, frame):
         state, path, episode, episode_step = frame
         self.ax.clear()
-        self.ax.imshow(self.maze.maze, cmap='gray')
+        cmap = mcolors.ListedColormap(['white', 'black'])
+        self.ax.imshow(self.maze.maze, cmap=cmap)
         self.ax.text(self.maze.start_position[0], self.maze.start_position[1], 'S', ha='center', va='center', color='red', fontsize=20)
         self.ax.text(self.maze.goal_position[0], self.maze.goal_position[1], 'G', ha='center', va='center', color='green', fontsize=20)
         for position in path:
@@ -272,8 +274,8 @@ execution_time = end_time - start_time
 print(f"Execution time: {execution_time} seconds")
 episode_step, episode_reward, path = test_agent(agent, maze, num_episodes=num_episodes)
 # Create an instance of the maze animation
-#maze_animation = MazeAnimation(maze, agent, num_episodes)
-#plt.show()
+maze_animation = MazeAnimation(maze, agent, num_episodes)
+
 
 
 

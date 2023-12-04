@@ -44,14 +44,14 @@ void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float explora
 
 __device__ void dfs(int* maze_array, int height, int width, int x, int y, curandState* state) {
     // Mark the current cell as visited
-    maze_array[y * width + x] = 2;
+    maze_array[y * width + x] = 0;
 
     // Define possible directions (up, down, left, right)
     int directions[4][2] = { {0, -1}, {0, 1}, {-1, 0}, {1, 0} };
 
     // Shuffle the directions randomly
     for (int i = 0; i < 4; ++i) {
-        int rand_idx = static_cast<int>(curand_uniform(state) * 4);
+        int rand_idx = static_cast<int>(curand_uniform(state) * 2);
         int temp_x = x + directions[rand_idx][0];
         int temp_y = y + directions[rand_idx][1];
 
@@ -60,17 +60,15 @@ __device__ void dfs(int* maze_array, int height, int width, int x, int y, curand
             // Check if the neighboring cell is visited
             if (maze_array[temp_y * width + temp_x] == 1) {
                 // Recursively call dfs for the adjacent cell
-                dfs(maze_array, height, width, temp_x, temp_y, state);
-            }
-            else {
-                // Break the wall by setting the value to 0 (open space)
+                maze_array[temp_y * width + temp_x] = 0;
                 maze_array[(y + temp_y) / 2 * width + (x + temp_x) / 2] = 0;
+                dfs(maze_array, height, width, temp_x, temp_y, state);
+                
             }
         }
 
     }
 }
-
 
 
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed) {
@@ -82,14 +80,21 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, unsign
     curandState state;
     curand_init(seed, idx, 0, &state);
 
-    maze_array[idx] = curand_uniform(&state) < 0.5 ? 0 : 1;
+    // Set the maze value randomly
+    maze_array[idx] = curand_uniform(&state) < 0.70 ? 0 : 1;
 
-    if (idx == 0 || idx == height * width - 1) {
+    // Ensure that the values surrounding the first and last indices are 0
+    if ((idx_x == 0 || idx_x == width - 1) && (idx_y == 0 || idx_y == height - 1)) {
+        // Set neighboring values to 0
         maze_array[idx] = 0;
+        maze_array[idx + 1] = 0;  // Right neighbor
+        maze_array[idx - 1] = 0;  // Left neighbor
+        maze_array[idx + width] = 0;  // Bottom neighbor
+        maze_array[idx - width] = 0;  // Top neighbor
     }
 
+    // Ensure connectivity by applying DFS from the top-left corner
     if (idx_x == 0 && idx_y == 0) {
-        // Ensure connectivity by applying DFS from the top-left corner
         dfs(maze_array, height, width, idx_x, idx_y, &state);
     }
 }
