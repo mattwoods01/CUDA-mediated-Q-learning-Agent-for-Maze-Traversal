@@ -9,8 +9,8 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 20
-maze_y = 20
+maze_x = 5
+maze_y = 5
 maze_layout = cu_matrix_add.random_array(maze_x,maze_y,random.randint(1, 1000))
 
 print(maze_layout)
@@ -58,6 +58,7 @@ class Maze:
         plt.show()
 
 maze = Maze(maze_layout, (0, 0), (maze_x-1, maze_y-1))
+epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(100, 1.3, 0.01)
 
 class QLearningAgent:
     def __init__(self, maze, learning_rate=0.7, discount_factor=0.9, exploration_start=1.3, exploration_end=0.01, num_episodes=100):
@@ -69,17 +70,9 @@ class QLearningAgent:
         self.exploration_start = exploration_start  # Exploration rate determines the likelihood of the agent taking a random action
         self.exploration_end = exploration_end
         self.num_episodes = num_episodes
-        self.exploration_rates = cu_matrix_add.epsilon_greedy_cuda(num_episodes, exploration_start, exploration_end)
-
-    def get_exploration_rate(self, current_episode):
-        # Calculate the current exploration rate using the given formula
-        return self.exploration_start * (self.exploration_end / self.exploration_start) ** (current_episode / self.num_episodes)
 
     def get_action(self, state, current_episode): # State is tuple representing where agent is in maze (x, y)
-        #exploration_rate = cu_matrix_add.epsilon_greedy_cuda(current_episode, self.num_episodes, self.exploration_start, self.exploration_end)
-        #exploration_rate = self.get_exploration_rate(current_episode)
-
-        exploration_rate = self.exploration_rates[current_episode]
+        exploration_rate = epsilon_rates[current_episode]
 
         # Select an action for the given state either randomly (exploration) or using the Q-table (exploitation)
         if np.random.rand() < exploration_rate:
@@ -88,18 +81,10 @@ class QLearningAgent:
             return np.argmax(self.q_table[state]) # Choose the action with the highest Q-value for the given state
 
     def update_q_table(self, state, action, next_state, reward):
-        print(self.q_table.shape)
-        cu_matrix_add.q_learning_cuda(self.q_table, state, action, next_state, reward, self.learning_rate, self.discount_factor)
-
-
-
-
-
-
-
-
-        
-
+        state_x, state_y = state
+        next_state_x, next_state_y = next_state
+        self.q_table = cu_matrix_add.update_q_table_gpu(self.q_table, state_x, state_y, action, next_state_x, next_state_y, reward, self.learning_rate, self.discount_factor)
+        print(self.q_table)
         # Find the best next action by selecting the action that maximizes the Q-value for the next state
         #best_next_action = np.argmax(self.q_table[next_state])
 
@@ -148,6 +133,8 @@ def finish_episode(agent, maze, current_episode, train=True):
         # Update the agent's Q-table if training is enabled
         if train == True:
             agent.update_q_table(current_state, action, next_state, reward)
+            
+
 
         # Move to the next state for the next iteration
         current_state = next_state

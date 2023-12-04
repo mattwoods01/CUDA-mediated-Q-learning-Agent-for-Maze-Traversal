@@ -1,19 +1,11 @@
-/*************************************************************************
-/* ECE 277: GPU Programmming 2020 
-/* Author and Instructer: Cheolhong An
-/* Copyright 2020
-/* University of California, San Diego
-/*************************************************************************/
-
 #include <curand_kernel.h>
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-#define num_actions 4
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed);
-__global__ void qLearningUpdateKernel(float* q_table, int state, int action, int next_state, float reward, float learning_rate, float discount_factor);
+__global__ void update_q_table_kernel(float* q_table, int x, int y, int q_size, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor);
 
 __global__
 void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
@@ -106,6 +98,7 @@ void randomArrayCuda(int* maze_array, int height, int width, unsigned long long 
     int* d_maze_array;
 
     cudaMalloc((void**)&d_maze_array, height * width * sizeof(float));
+    cudaMemcpy(d_maze_array, maze_array, height * width * sizeof(float), cudaMemcpyHostToDevice);
 
     int dimx = 32;
     int dimy = 32;
@@ -120,53 +113,36 @@ void randomArrayCuda(int* maze_array, int height, int width, unsigned long long 
     cudaDeviceSynchronize();
 }
 
+
 __global__
-void qLearningUpdateKernel(float* q_table, int state, int action, int next_state, float reward, float learning_rate, float discount_factor) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+void update_q_table_kernel(float* q_table, int x, int y, int q_size, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
+    int idx = (state_x * y + state_y) * q_size + action;
+    q_table[idx] = q_table[idx] + learning_rate * (reward + discount_factor * q_table[((next_state_x * y + next_state_y) * q_size) + action] - q_table[idx]);
 
-    int num_states = 20*20;
-
-    if (tid < num_states) {
-        for (int a = 0; a < num_actions; ++a) {
-            float max_q_value = q_table[next_state * num_states * num_actions + tid * num_actions];
-            int best_next_action = 0;
-
-            for (int b = 1; b < num_actions; ++b) {
-                float q_value = q_table[next_state * num_states * num_actions + tid * num_actions + b];
-                if (q_value > max_q_value) {
-                    max_q_value = q_value;
-                    best_next_action = b;
-                }
-            }
-
-            // Get the current Q-value for the current state and action
-            float current_q_value = q_table[state * num_states * num_actions + tid * num_actions + action];
-
-            // Q-value update using Q-learning formula
-            float new_q_value = current_q_value + learning_rate * (reward + discount_factor * max_q_value - current_q_value);
-
-            // Update the Q-table with the new Q-value for the current state and action
-            q_table[state * num_states * num_actions + tid * num_actions + action] = new_q_value;
-        }
-    }
 }
 
-void qLearningCUDA(float* q_table, int state, int action, int next_state, float reward, float learning_rate, float discount_factor) {
+void update_q_table_cuda(float* q_table, int x, int y, int q_size, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
     float* d_q_table;
 
-    cudaMalloc((void**)&d_q_table, 20 * 20 * 4 * sizeof(float));
+    // Allocate device memory and copy the input q_table to the device
+    cudaMalloc((void**)&d_q_table, x * y * q_size * sizeof(float));
+    cudaMemcpy(d_q_table, q_table, x * y * q_size * sizeof(float), cudaMemcpyHostToDevice);
 
-    cudaMemcpy(d_q_table, q_table, 20 * 20 * 4 * sizeof(float), cudaMemcpyHostToDevice);
+    // Use a 3D grid and 1D block for simplicity
+    dim3 block(8, 8, 1);  // Adjust as needed
+    dim3 grid((x + block.x - 1) / block.x, (y + block.y - 1) / block.y, 1);  // Adjust as needed
 
-    // Launch the kernel
-    int dimx = 32;
-    int blocks_per_grid = (20 + dimx - 1) / dimx;
-    dim3 block(dimx, 1);
-    dim3 grid(blocks_per_grid, 1);
-    qLearningUpdateKernel << <grid, block >> > (d_q_table, state, action, next_state, reward, learning_rate, discount_factor);
 
-    cudaMemcpy(q_table, d_q_table, 20 * 20 * 4 * sizeof(float), cudaMemcpyDeviceToHost);
+    // Update q_table values on the device
+    update_q_table_kernel << <grid, block >> > (d_q_table, x, y, q_size, state_x, state_y, action, next_state_x, next_state_y, reward, learning_rate, discount_factor);
 
+    // Copy the result back to the host
+    cudaMemcpy(q_table, d_q_table, x * y * q_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Free device memory
     cudaFree(d_q_table);
+
+    // Synchronize device
     cudaDeviceSynchronize();
 }
+
