@@ -1,34 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import matplotlib.colors as mcolors
 import time
 import sys
 sys.path.append("../build/src/Maze_cuda_functions/release")
 import cu_matrix_add
+import random
 
 # Create any maze layout you'd like, here's an example
-maze_layout = np.array([
-    [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1],
-    [0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1],
-    [1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0],
-    [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1],
-    [0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0],
-    [1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    [0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0],
-    [1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1],
-    [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0],
-    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-    [0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1],
-    [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0],
-    [1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],
-    [0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0],
-    [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-])
+maze_x = 20
+maze_y = 20
+maze_layout = cu_matrix_add.random_array(maze_x,maze_y,random.randint(1, 1000))
+
+print(maze_layout)
+
 
 # Actions the agent can take: Up, Down, Left, Right. Each action is represented as a tuple of two values: (row_change, column_change)
 actions = [(-1, 0), # Up: Moving one step up, reducing the row index by 1
@@ -58,7 +44,8 @@ class Maze:
         plt.figure(figsize=(5,5))
 
         # Display the maze as an image in grayscale ('gray' colormap)
-        plt.imshow(self.maze, cmap='gray')
+        cmap = mcolors.ListedColormap(['black', 'white'])
+        plt.imshow(self.maze, cmap=cmap)
 
         # Add start and goal positions as 'S' and 'G'
         plt.text(self.start_position[0], self.start_position[1], 'S', ha='center', va='center', color='red', fontsize=20)
@@ -70,6 +57,8 @@ class Maze:
         # Show the plot
         plt.show()
 
+maze = Maze(maze_layout, (0, 0), (maze_x-1, maze_y-1))
+
 class QLearningAgent:
     def __init__(self, maze, learning_rate=0.7, discount_factor=0.9, exploration_start=1.3, exploration_end=0.01, num_episodes=100):
         # Initialize the Q-learning agent with a Q-table containing all zeros
@@ -80,14 +69,17 @@ class QLearningAgent:
         self.exploration_start = exploration_start  # Exploration rate determines the likelihood of the agent taking a random action
         self.exploration_end = exploration_end
         self.num_episodes = num_episodes
+        self.exploration_rates = cu_matrix_add.epsilon_greedy_cuda(num_episodes, exploration_start, exploration_end)
 
     def get_exploration_rate(self, current_episode):
         # Calculate the current exploration rate using the given formula
         return self.exploration_start * (self.exploration_end / self.exploration_start) ** (current_episode / self.num_episodes)
 
     def get_action(self, state, current_episode): # State is tuple representing where agent is in maze (x, y)
-        exploration_rate = cu_matrix_add.epsilon_greedy_cuda(current_episode, self.num_episodes, self.exploration_start, self.exploration_end)
+        #exploration_rate = cu_matrix_add.epsilon_greedy_cuda(current_episode, self.num_episodes, self.exploration_start, self.exploration_end)
         #exploration_rate = self.get_exploration_rate(current_episode)
+
+        exploration_rate = self.exploration_rates[current_episode]
 
         # Select an action for the given state either randomly (exploration) or using the Q-table (exploitation)
         if np.random.rand() < exploration_rate:
@@ -96,6 +88,7 @@ class QLearningAgent:
             return np.argmax(self.q_table[state]) # Choose the action with the highest Q-value for the given state
 
     def update_q_table(self, state, action, next_state, reward):
+
         # Find the best next action by selecting the action that maximizes the Q-value for the next state
         best_next_action = np.argmax(self.q_table[next_state])
 
@@ -176,7 +169,8 @@ def test_agent(agent, maze, num_episodes=1):
 
     # Visualize the maze using matplotlib
     # plt.figure(figsize=(5,5))
-    plt.imshow(maze.maze, cmap='gray')
+    cmap = mcolors.ListedColormap(['white', 'black'])
+    plt.imshow(maze.maze, cmap=cmap)
 
     # Mark the start position (red 'S') and goal position (green 'G') in the maze
     plt.text(maze.start_position[0], maze.start_position[1], 'S', ha='center', va='center', color='red', fontsize=20)
@@ -189,7 +183,7 @@ def test_agent(agent, maze, num_episodes=1):
     # Remove axis ticks and grid lines for a cleaner visualization
     plt.xticks([]), plt.yticks([])
     plt.grid(color='black', linewidth=2)
-    #plt.show()
+    plt.show()
 
     return episode_step, episode_reward, path
 
@@ -229,20 +223,9 @@ def train_agent(agent, maze, num_episodes=100):
     print(f"The average steps is: {average_steps}")
 
     plt.tight_layout()
-    #plt.show()
-
-# maze = Maze(maze_layout, (0, 0), (19, 19))
-# # maze.show_maze()
-
-# agent = QLearningAgent(maze)
-# # Test the agent using the test_agent function
-# # test_agent(agent, maze)
-
-# # Training the agent
+    plt.show()
 
 
-# # Testing the agent after training
-# test_agent(agent, maze, num_episodes=300)
 
 class MazeAnimation:
     def __init__(self, maze, agent, num_episodes):
@@ -279,7 +262,7 @@ class MazeAnimation:
             #     current_state = next_state
 
 # Create instances of the maze and the Q-learning agent
-maze = Maze(maze_layout, (0, 0), (19, 19))
+
 agent = QLearningAgent(maze)
 test_agent(agent, maze)
 start_time = time.time()

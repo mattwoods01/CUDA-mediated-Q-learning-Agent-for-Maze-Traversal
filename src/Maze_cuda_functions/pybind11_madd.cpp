@@ -8,61 +8,41 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
-extern void cu_madd(int* A, int* B, int* C, int M, int N);
-extern void epsilonGreedyCUDA(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end);
+extern void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
+extern void randomArrayCuda(int* array, int height, int width, unsigned long long seed);
 
 namespace py = pybind11;
 
 
-float py_epsilonGreedyCUDA(int current_episode, int num_episodes, float exploration_start, float exploration_end) {
-	// Call the CUDA function to get the result
-	float result;
-	epsilonGreedyCUDA(&result, current_episode, num_episodes, exploration_start, exploration_end);
+py::array_t<float> py_epsilonGreedyCUDA(int num_episodes, float exploration_start, float exploration_end) {
+    // Create a NumPy array to hold the results
+    py::array_t<float> result_array(num_episodes);
+    py::buffer_info buf_info = result_array.request();
+    float* ptr = static_cast<float*>(buf_info.ptr);
 
-	return result;
+    // Call the CUDA function
+    epsilonGreedyCUDA(ptr, num_episodes, exploration_start, exploration_end);
+
+    return result_array;
 }
 
 
-py::array_t<int> madd_wrapper(py::array_t<int> a1, py::array_t<int> a2) 
-{
-	auto buf1 = a1.request();
-	auto buf2 = a2.request();
+py::array_t<int> randomArrayWrapper(int height, int width, unsigned long long seed) {
+    // Create a NumPy array to hold the results
+    py::array_t<int> result_array({ height, width });
+    py::buffer_info buf_info = result_array.request();
+    int* ptr = static_cast<int*>(buf_info.ptr);
 
-	if (a1.ndim() != 2 || a2.ndim() != 2)
-		throw std::runtime_error("Number of dimensions must be two");
+    // Call the CUDA function
+    randomArrayCuda(ptr, height, width, seed);
 
-	if (buf1.size != buf2.size)
-		throw std::runtime_error("Input shapes must match");
-
-	// NxM matrix
-	int N = a1.shape()[0];
-	int M = a1.shape()[1];
-	printf("M=%d, N=%d\n", M, N);
-
-	auto result = py::array(py::buffer_info(
-		nullptr,            /* Pointer to data (nullptr -> ask NumPy to allocate!) */
-		sizeof(int),     /* Size of one item */
-		py::format_descriptor<int>::value, /* Buffer format */
-		buf1.ndim,          /* How many dimensions? */
-		{ N, M},  /* Number of elements for each dimension */
-		{ sizeof(int)*M, sizeof(int) }  /* Strides for each dimension */
-	));
-
-	auto buf3 = result.request();
-
-	int* A = (int*)buf1.ptr;
-	int* B = (int*)buf2.ptr;
-	int* C = (int*)buf3.ptr;
-
-	cu_madd(A, B, C, M, N);
-
-    return result;
+    return result_array;
 }
 
 
 PYBIND11_MODULE(cu_matrix_add, m) {
-    m.def("madd", &madd_wrapper, "Add two NumPy arrays");
     m.def("epsilon_greedy_cuda", &py_epsilonGreedyCUDA, "Compute epsilon-greedy exploration rates using CUDA");
+    m.def("random_array", &randomArrayWrapper, "Generate a random array of 1's and 0's using CUDA");
 
 #ifdef VERSION_INFO
     m.attr("__version__") = VERSION_INFO;

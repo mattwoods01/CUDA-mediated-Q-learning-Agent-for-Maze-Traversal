@@ -5,78 +5,110 @@
 /* University of California, San Diego
 /*************************************************************************/
 
+#include <curand_kernel.h>
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-__global__ void kernel_madd(int* A, int* B, int* C, int M, int N);
-__global__ void epsilonGreedyKernel(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end);
+#define num_actions 4
 
-void cu_madd(int* A, int* B, int* C, int M, int N)
-{
-	int *d_a, *d_b, *d_c;
-
-	dim3 blk;
-	blk.x = 16; blk.y = 16;
-
-	dim3 grid;
-	grid.x = (M + blk.x - 1) / blk.x;
-	grid.y = (N + blk.y - 1) / blk.y;
-	grid.z = 1;
-
-	int size = sizeof(unsigned int)*M*N;
-
-	cudaMalloc((void **)&d_a, size);
-	cudaMalloc((void **)&d_b, size);
-	cudaMalloc((void **)&d_c, size);
-
-	cudaMemcpy(d_a, A, size, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_b, B, size, cudaMemcpyHostToDevice);
-
-	kernel_madd << < grid, blk >> > (d_a, d_b, d_c, M, N);
-
-	cudaMemcpy(C, d_c, size, cudaMemcpyDeviceToHost);
-
-	cudaFree(d_a);
-	cudaFree(d_b);
-	cudaFree(d_c);
-}
-
-__global__ void kernel_madd(int* A, int* B, int* C, int M, int N)
-{
-	unsigned int ix = threadIdx.x + blockIdx.x * blockDim.x;
-	unsigned int iy = threadIdx.y + blockIdx.y * blockDim.y;
-	unsigned int idx = iy * M + ix;
-
-	if (idx == 0)
-		printf("cuda matrix (%d, %d) addition\n", N, M);
-
-	if (ix < M && iy < N)
-		C[idx] = A[idx] + B[idx];
-}
+__global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
+__global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed);
 
 __global__
-void epsilonGreedyKernel(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end) {
-	int tid = blockIdx.x * blockDim.x + threadIdx.x;
-	if (tid == 0) {
-		exploration_rates[0] = exploration_start * pow(exploration_end / exploration_start, static_cast<float>(current_episode) / static_cast<float>(num_episodes));
-	}
+void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < num_episodes) {
+        float frac = static_cast<float>(tid) / static_cast<float>(num_episodes);
+        exploration_rates[tid] = exploration_start * exp(frac * log(exploration_end / exploration_start));
+    }
 }
 
-void epsilonGreedyCUDA(float* exploration_rates, int current_episode, int num_episodes, float exploration_start, float exploration_end) {
-	float* d_exploration_rates;
+void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
+    float* d_exploration_rates;
 
-	int dimx = 32;
-	dim3 block(dimx, 1);
-	dim3 grid((4 + block.x - 1) / block.x, 1);
+    cudaMalloc((void**)&d_exploration_rates, num_episodes * sizeof(float));
+    cudaMemcpy(d_exploration_rates, exploration_rates, num_episodes * sizeof(float), cudaMemcpyHostToDevice);
 
-	cudaMalloc((void**)&d_exploration_rates, sizeof(float));
-	cudaMemcpy(d_exploration_rates, exploration_rates, sizeof(float), cudaMemcpyHostToDevice);
-	epsilonGreedyKernel << <32, block >> > (d_exploration_rates, current_episode, num_episodes, exploration_start, exploration_end);
-	cudaMemcpy(exploration_rates, d_exploration_rates, sizeof(float), cudaMemcpyDeviceToHost);
+    int dimx = 32;
+    int blocks_per_grid = (num_episodes + dimx - 1) / dimx;
+    dim3 block(dimx, 1);
+    dim3 grid(blocks_per_grid, 1);
 
-	cudaFree(d_exploration_rates);
-	cudaDeviceSynchronize();
+    epsilonGreedyKernel << <grid, block >> > (d_exploration_rates, num_episodes, exploration_start, exploration_end);
+
+    cudaMemcpy(exploration_rates, d_exploration_rates, num_episodes * sizeof(float), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_exploration_rates);
+    cudaDeviceSynchronize();
+}
+
+__device__ void dfs(int* maze_array, int height, int width, int x, int y, curandState* state) {
+    // Mark the current cell as visited
+    maze_array[y * width + x] = 2;
+
+    // Define possible directions (up, down, left, right)
+    int directions[4][2] = { {0, -1}, {0, 1}, {-1, 0}, {1, 0} };
+
+    // Shuffle the directions randomly
+    for (int i = 0; i < 4; ++i) {
+        int rand_idx = static_cast<int>(curand_uniform(state) * 4);
+        int temp_x = x + directions[rand_idx][0];
+        int temp_y = y + directions[rand_idx][1];
+
+        // Check if the new cell is within bounds
+        if (temp_x >= 0 && temp_x < width && temp_y >= 0 && temp_y < height) {
+            // Check if the neighboring cell is visited
+            if (maze_array[temp_y * width + temp_x] == 1) {
+                // Recursively call dfs for the adjacent cell
+                dfs(maze_array, height, width, temp_x, temp_y, state);
+            }
+            else {
+                // Break the wall by setting the value to 0 (open space)
+                maze_array[(y + temp_y) / 2 * width + (x + temp_x) / 2] = 0;
+            }
+        }
+
+    }
 }
 
 
 
+__global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed) {
+    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    int idx = idx_y * width + idx_x;
+
+    curandState state;
+    curand_init(seed, idx, 0, &state);
+
+    maze_array[idx] = curand_uniform(&state) < 0.5 ? 0 : 1;
+
+    if (idx == 0 || idx == height * width - 1) {
+        maze_array[idx] = 0;
+    }
+
+    if (idx_x == 0 && idx_y == 0) {
+        // Ensure connectivity by applying DFS from the top-left corner
+        dfs(maze_array, height, width, idx_x, idx_y, &state);
+    }
+}
+
+
+void randomArrayCuda(int* maze_array, int height, int width, unsigned long long seed) {
+    int* d_maze_array;
+
+    cudaMalloc((void**)&d_maze_array, height * width * sizeof(int));
+
+    int dimx = 32;
+    int dimy = 32;
+    dim3 block(dimx, dimy);
+    dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
+
+    randomArrayKernel << <grid, block >> > (d_maze_array, height, width, seed);
+
+    cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(int), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_maze_array);
+    cudaDeviceSynchronize();
+}
