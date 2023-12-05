@@ -12,9 +12,9 @@ import random
 maze_x = 20
 maze_y = 20
 maze_layout = cu_matrix_add.random_array(maze_x,maze_y,random.randint(1, 1000))
-print(maze_layout)
+#print(maze_layout)
 
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, .20, random.randint(1, 1000))
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, 10, random.randint(1, 1000))
 
 print(maze_layout)
 
@@ -96,9 +96,8 @@ class QLearningAgent:
 
 
         self.q_table[state][action] = cu_matrix_add.update_q_table_gpu(current_q_value, next_q_value, state_x, state_y, best_next_action, next_state_x, next_state_y, reward, self.learning_rate, self.discount_factor)[0]
-        print(self.q_table[state][action])
-        test = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
-        print(test)
+        #self.q_table[state][action] = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
+ 
 
 
 def finish_episode(agent, maze, current_episode, train=True):

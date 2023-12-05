@@ -2,12 +2,10 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed);
 __global__ void update_q_table_kernel(float* q_value, float next_q_value, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor);
 __global__ void randomizeZerosKernel(int* array, int size, float percentage, unsigned long long seed);
-
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -74,7 +72,7 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, unsign
     curand_init(seed, idx, 0, &state);
 
     // Set the maze value randomly
-    maze_array[idx] = curand_uniform(&state) < 0.70 ? 0 : 1;
+    maze_array[idx] = curand_uniform(&state) < 0.65 ? 0 : 1;
 
     // Ensure that the values surrounding the first and last indices are 0
     if ((idx_x == 0 || idx_x == width - 1) && (idx_y == 0 || idx_y == height - 1)) {
@@ -150,16 +148,19 @@ void cleanup_cuda() {
 }
 
 __global__ void randomizeZerosKernel(int* A, int size, float percentage, unsigned long long seed) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    int idx = idx_y * size + idx_x;
 
     curandState state;
     curand_init(seed, idx, 0, &state);
 
-    // Randomly turn a percentage of 0's to 2's
-    if (idx < size && A[idx] == 0 && curand_uniform(&state) < percentage) {
+    if (idx < size) {
         A[idx] = 2;
     }
 }
+
 
 void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long long seed) {
     int *d_A;
@@ -169,7 +170,7 @@ void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long lo
     dim3 block(dimx, dimy);
     dim3 grid((X + block.x - 1) / block.x, (Y + block.y - 1) / block.y);
 
-    int size = sizeof(unsigned int) * X * Y;
+    int size = sizeof(int) * X * Y;
 
     cudaMalloc((void**)&d_A, size);
 
