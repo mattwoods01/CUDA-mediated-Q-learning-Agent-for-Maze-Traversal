@@ -6,6 +6,8 @@
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed);
 __global__ void update_q_table_kernel(float* q_value, float next_q_value, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor);
+__global__ void randomizeZerosKernel(int* array, int size, float percentage, unsigned long long seed);
+
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -113,10 +115,7 @@ __global__ void update_q_table_kernel(float* q_value, float next_q_value, int st
     // Calculate the index directly, assuming q_value is a single value
 
     *q_value = *q_value + learning_rate * (reward + discount_factor * next_q_value - *q_value);
-
-
 }
-
 
 float* d_q_value = nullptr;
 
@@ -143,10 +142,44 @@ void update_q_table_cuda(float* q_value, float next_q_value, int state_x, int st
     cudaMemcpy(q_value, d_q_value, sizeof(float), cudaMemcpyDeviceToHost);
 }
 
-// Free device memory when the library is unloaded
 void cleanup_cuda() {
     if (d_q_value != nullptr) {
         cudaFree(d_q_value);
         d_q_value = nullptr;
     }
 }
+
+__global__ void randomizeZerosKernel(int* A, int size, float percentage, unsigned long long seed) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    curandState state;
+    curand_init(seed, idx, 0, &state);
+
+    // Randomly turn a percentage of 0's to 2's
+    if (idx < size && A[idx] == 0 && curand_uniform(&state) < percentage) {
+        A[idx] = 2;
+    }
+}
+
+void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long long seed) {
+    int *d_A;
+
+    int dimx = 32;
+    int dimy = 32;
+    dim3 block(dimx, dimy);
+    dim3 grid((X + block.x - 1) / block.x, (Y + block.y - 1) / block.y);
+
+    int size = sizeof(unsigned int) * X * Y;
+
+    cudaMalloc((void**)&d_A, size);
+
+    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
+
+    randomizeZerosKernel << < grid, block >> > (d_A, size, percentage, seed);
+
+    cudaMemcpy(A, d_A, size, cudaMemcpyDeviceToHost);
+
+    cudaFree(d_A);
+    cudaDeviceSynchronize();
+}
+

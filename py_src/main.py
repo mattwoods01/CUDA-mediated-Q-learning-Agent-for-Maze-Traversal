@@ -12,6 +12,9 @@ import random
 maze_x = 20
 maze_y = 20
 maze_layout = cu_matrix_add.random_array(maze_x,maze_y,random.randint(1, 1000))
+print(maze_layout)
+
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, .20, random.randint(1, 1000))
 
 print(maze_layout)
 
@@ -44,7 +47,7 @@ class Maze:
         plt.figure(figsize=(5,5))
 
         # Display the maze as an image in grayscale ('gray' colormap)
-        cmap = mcolors.ListedColormap(['white', 'black'])
+        cmap = mcolors.ListedColormap(['white', 'black', 'red'])
         plt.imshow(self.maze, cmap=cmap)
 
         # Add start and goal positions as 'S' and 'G'
@@ -58,7 +61,9 @@ class Maze:
         plt.show()
 
 maze = Maze(maze_layout, (0, 0), (maze_x-1, maze_y-1))
+maze.show_maze()
 epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(100, 1.3, 0.01)
+
 
 class QLearningAgent: 
     def __init__(self, maze, learning_rate=0.7, discount_factor=0.9, exploration_start=1.3, exploration_end=0.01, num_episodes=100):
@@ -89,8 +94,12 @@ class QLearningAgent:
         current_q_value = self.q_table[state][action]
         next_q_value = self.q_table[next_state][best_next_action]
 
+
         self.q_table[state][action] = cu_matrix_add.update_q_table_gpu(current_q_value, next_q_value, state_x, state_y, best_next_action, next_state_x, next_state_y, reward, self.learning_rate, self.discount_factor)[0]
-        #self.q_table[state][action] = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
+        print(self.q_table[state][action])
+        test = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
+        print(test)
+
 
 def finish_episode(agent, maze, current_episode, train=True):
     # Initialize the agent's current state to the maze's start position
