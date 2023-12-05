@@ -5,10 +5,9 @@
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed);
-__global__ void update_q_table_kernel(float* q_table, int x, int y, int q_size, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor);
+__global__ void update_q_table_kernel(float* q_value, float next_q_value, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor);
 
-__global__
-void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
+__global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < num_episodes) {
         float frac = static_cast<float>(tid) / static_cast<float>(num_episodes);
@@ -35,8 +34,7 @@ void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float explora
     cudaDeviceSynchronize();
 }
 
-__device__ 
-void dfs(int* maze_array, int height, int width, int x, int y, curandState* state) {
+__device__ void dfs(int* maze_array, int height, int width, int x, int y, curandState* state) {
     // Mark the current cell as visited
     maze_array[y * width + x] = 0;
 
@@ -64,8 +62,7 @@ void dfs(int* maze_array, int height, int width, int x, int y, curandState* stat
     }
 }
 
-__global__ 
-void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed) {
+__global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed) {
     int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -93,7 +90,6 @@ void randomArrayKernel(int* maze_array, int height, int width, unsigned long lon
     }
 }
 
-
 void randomArrayCuda(int* maze_array, int height, int width, unsigned long long seed) {
     int* d_maze_array;
 
@@ -113,36 +109,44 @@ void randomArrayCuda(int* maze_array, int height, int width, unsigned long long 
     cudaDeviceSynchronize();
 }
 
+__global__ void update_q_table_kernel(float* q_value, float next_q_value, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
+    // Calculate the index directly, assuming q_value is a single value
 
-__global__
-void update_q_table_kernel(float* q_table, int x, int y, int q_size, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
-    int idx = (state_x * y + state_y) * q_size + action;
-    q_table[idx] = q_table[idx] + learning_rate * (reward + discount_factor * q_table[((next_state_x * y + next_state_y) * q_size) + action] - q_table[idx]);
+    *q_value = *q_value + learning_rate * (reward + discount_factor * next_q_value - *q_value);
+
 
 }
 
-void update_q_table_cuda(float* q_table, int x, int y, int q_size, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
-    float* d_q_table;
 
-    // Allocate device memory and copy the input q_table to the device
-    cudaMalloc((void**)&d_q_table, x * y * q_size * sizeof(float));
-    cudaMemcpy(d_q_table, q_table, x * y * q_size * sizeof(float), cudaMemcpyHostToDevice);
+float* d_q_value = nullptr;
 
-    // Use a 3D grid and 1D block for simplicity
-    dim3 block(8, 8, 1);  // Adjust as needed
-    dim3 grid((x + block.x - 1) / block.x, (y + block.y - 1) / block.y, 1);  // Adjust as needed
+void update_q_table_cuda(float* q_value, float next_q_value, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
+    // Check if device memory is allocated, if not, allocate it
+    if (!d_q_value) {
+        cudaMalloc((void**)&d_q_value, sizeof(float));
+    }
 
+    // Copy the input q_value to the device
+    cudaMemcpy(d_q_value, q_value, sizeof(float), cudaMemcpyHostToDevice);
 
-    // Update q_table values on the device
-    update_q_table_kernel << <grid, block >> > (d_q_table, x, y, q_size, state_x, state_y, action, next_state_x, next_state_y, reward, learning_rate, discount_factor);
+    // Use a 1D grid and block for simplicity, as you are dealing with a single value
+    dim3 block(1);
+    dim3 grid(1);
+
+    // Update q_value on the device
+    update_q_table_kernel << <grid, block >> > (d_q_value, next_q_value, state_x, state_y, action, next_state_x, next_state_y, reward, learning_rate, discount_factor);
+
+    // Synchronize the device
+    cudaDeviceSynchronize();
 
     // Copy the result back to the host
-    cudaMemcpy(q_table, d_q_table, x * y * q_size * sizeof(float), cudaMemcpyDeviceToHost);
-
-    // Free device memory
-    cudaFree(d_q_table);
-
-    // Synchronize device
-    cudaDeviceSynchronize();
+    cudaMemcpy(q_value, d_q_value, sizeof(float), cudaMemcpyDeviceToHost);
 }
 
+// Free device memory when the library is unloaded
+void cleanup_cuda() {
+    if (d_q_value != nullptr) {
+        cudaFree(d_q_value);
+        d_q_value = nullptr;
+    }
+}

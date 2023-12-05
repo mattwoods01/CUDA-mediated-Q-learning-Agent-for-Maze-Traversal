@@ -6,7 +6,7 @@ namespace py = pybind11;
 
 extern void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 extern void randomArrayCuda(int* array, int height, int width, unsigned long long seed);
-extern void update_q_table_cuda(float* q_table, int x, int y, int q_size, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor);
+extern void update_q_table_cuda(float* q_value, float next_q_value, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor);
 
 py::array_t<float> py_epsilonGreedyCUDA(int num_episodes, float exploration_start, float exploration_end) {
     // Create a NumPy array to hold the results
@@ -32,18 +32,16 @@ py::array_t<int> randomArrayWrapper(int height, int width, unsigned long long se
     return result_array;
 }
 
-py::array_t<float> update_q_table_gpu(py::array_t<float> q_table, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
-    py::buffer_info buf_info = q_table.request();
-    float* ptr = static_cast<float*>(buf_info.ptr);
+py::array_t<float> update_q_table_gpu(float q_value, float next_q_value, int state_x, int state_y, int action, int next_state_x, int next_state_y, float reward, float learning_rate, float discount_factor) {
+    // Create a numpy array to hold the result
+    py::array_t<float> result_array({ 1 });
+    py::buffer_info buf_array = result_array.request();
+    float* ptr = static_cast<float*>(buf_array.ptr);
 
-    int x = buf_info.shape[0];
-    int y = buf_info.shape[1];
-    int q_size = buf_info.shape[2];
-    py::array_t<float> result = py::array_t<float>({ x, y, q_size });
+    // Call the CUDA kernel
+    update_q_table_cuda(ptr, next_q_value, state_x, state_y, action, next_state_x, next_state_y, reward, learning_rate, discount_factor);
 
-    update_q_table_cuda(ptr, x, y, q_size, state_x, state_y, action, next_state_x, next_state_y, reward, learning_rate, discount_factor);
-
-    return result;
+    return result_array;
 }
 
 PYBIND11_MODULE(cu_matrix_add, m) {
