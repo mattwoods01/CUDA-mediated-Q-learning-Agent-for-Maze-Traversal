@@ -72,7 +72,7 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, unsign
     curand_init(seed, idx, 0, &state);
 
     // Set the maze value randomly
-    maze_array[idx] = curand_uniform(&state) < 0.65 ? 0 : 1;
+    maze_array[idx] = curand_uniform(&state) < 0.55 ? 0 : 1;
 
     // Ensure that the values surrounding the first and last indices are 0
     if ((idx_x == 0 || idx_x == width - 1) && (idx_y == 0 || idx_y == height - 1)) {
@@ -156,27 +156,26 @@ __global__ void randomizeZerosKernel(int* A, int size, float percentage, unsigne
     curandState state;
     curand_init(seed, idx, 0, &state);
 
-    if (idx < size) {
+    if (A[idx] == 1 && curand_uniform(&state) < percentage) {
         A[idx] = 2;
     }
 }
 
-
 void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long long seed) {
-    int *d_A;
+    int* d_A;
 
     int dimx = 32;
     int dimy = 32;
     dim3 block(dimx, dimy);
     dim3 grid((X + block.x - 1) / block.x, (Y + block.y - 1) / block.y);
 
-    int size = sizeof(int) * X * Y;
+    int size = X * Y * sizeof(int);  
 
     cudaMalloc((void**)&d_A, size);
 
     cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
 
-    randomizeZerosKernel << < grid, block >> > (d_A, size, percentage, seed);
+    randomizeZerosKernel << <grid, block >> > (d_A, X, percentage, seed);  
 
     cudaMemcpy(A, d_A, size, cudaMemcpyDeviceToHost);
 

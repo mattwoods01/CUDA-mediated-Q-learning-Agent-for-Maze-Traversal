@@ -46,11 +46,8 @@ py::array_t<float> update_q_table_gpu(float q_value, float next_q_value, int sta
     return result_array;
 }
 
-py::array_t<int> randomizeZeroswrapper(py::array_t<int> result_array, float percentage, unsigned long long seed) {
+py::array_t<int> randomizeZeroswrapper(py::array_t<int> result_array, int x, int y, float percentage, unsigned long long seed) {
     auto buf1 = result_array.request();
-
-    int x = result_array.shape()[0];
-    int y = result_array.shape()[1];
 
     int* A = (int*)buf1.ptr;
 
