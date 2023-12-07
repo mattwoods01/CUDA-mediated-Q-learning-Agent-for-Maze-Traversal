@@ -9,11 +9,16 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 10
-maze_y = 10
+maze_x = 20
+maze_y = 20
+start_coord = (0, 0)
+end_coord = (maze_x-1, maze_y-1)
 
 maze_layout = cu_matrix_add.random_array(maze_x, maze_y, random.randint(1, 1000))
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .1, random.randint(1, 1000))
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .5, random.randint(1, 1000))
+maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, 0, 0, maze_x-5, maze_y-5, random.randint(1, 1000))
+
+
 
 print(maze_layout)
 
@@ -58,7 +63,7 @@ class Maze:
         # Show the plot
         plt.show()
 
-maze = Maze(maze_layout, (0, 0), (maze_x-1, maze_y-1))
+maze = Maze(maze_layout, start_coord, end_coord)
 maze.show_maze()
 epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(100, 1.3, 0.01)
 

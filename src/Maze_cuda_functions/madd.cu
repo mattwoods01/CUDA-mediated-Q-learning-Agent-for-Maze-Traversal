@@ -1,12 +1,11 @@
 #include <curand_kernel.h>
 #include <cuda_runtime.h>
 #include <stdio.h>
-#include <queue>
-#include <iostream>
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed);
 __global__ void randomizeZerosKernel(int* array, int size, float percentage, unsigned long long seed);
+__global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -35,41 +34,6 @@ void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float explora
     cudaDeviceSynchronize();
 }
 
-__device__ void dfs(int* maze_array, int height, int width, int idx_x, int idx_y, curandState* state) {
-    // Mark the current cell as visited
-    int idx = idx_y * width + idx_x;
-    maze_array[idx] = 3;  // Mark as visited (you can choose any marker)
-
-    // Define the possible moves (up, down, left, right)
-    int moves[4][2] = { {-1, 0}, {1, 0}, {0, -1}, {0, 1} };
-
-    // Shuffle the moves array using Fisher-Yates algorithm
-    for (int i = 4; i > 0; --i) {
-        int j = curand_uniform(state) * (i + 1);
-        // Swap moves[i] and moves[j]
-        int temp0 = moves[i][0];
-        int temp1 = moves[i][1];
-        moves[i][0] = moves[j][0];
-        moves[i][1] = moves[j][1];
-        moves[j][0] = temp0;
-        moves[j][1] = temp1;
-    }
-
-    // Explore neighbors in a random order
-    for (int i = 0; i < 4; ++i) {
-        int new_x = idx_x + moves[i][0];
-        int new_y = idx_y + moves[i][1];
-
-        // Check if the new position is within bounds and has not been visited
-        if (new_x >= 0 && new_x < width && new_y >= 0 && new_y < height) {
-            int new_idx = new_y * width + new_x;
-            if (maze_array[new_idx] == 0) {
-                dfs(maze_array, height, width, new_x, new_y, state);
-            }
-        }
-    }
-}
-
 __global__ void randomArrayKernel(int* maze_array, int height, int width, unsigned long long seed) {
     int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -81,21 +45,6 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, unsign
 
     // Set the maze value randomly
     maze_array[idx] = curand_uniform(&state) < 0.55 ? 0 : 1;
-
-    // Ensure that the values surrounding the first and last indices are 0
-    if ((idx_x == 0 || idx_x == width - 1) && (idx_y == 0 || idx_y == height - 1)) {
-        // Set neighboring values to 0
-        maze_array[idx] = 0;
-        maze_array[idx + 1] = 0;  // Right neighbor
-        maze_array[idx - 1] = 0;  // Left neighbor
-        maze_array[idx + width] = 0;  // Bottom neighbor
-        maze_array[idx - width] = 0;  // Top neighbor
-    }
-
-    // Ensure connectivity by applying DFS from the top-left corner
-    if (idx_x == 0 && idx_y == 0) {
-        dfs(maze_array, height, width, idx_x, idx_y);  // Start DFS from the top-left corner
-    }
 }
 
 void randomArrayCuda(int* maze_array, int height, int width, unsigned long long seed) {
@@ -139,13 +88,13 @@ void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long lo
     dim3 block(dimx, dimy);
     dim3 grid((X + block.x - 1) / block.x, (Y + block.y - 1) / block.y);
 
-    int size = X * Y * sizeof(int);  
+    int size = X * Y * sizeof(int);
 
     cudaMalloc((void**)&d_A, size);
 
     cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
 
-    randomizeZerosKernel << <grid, block >> > (d_A, X, percentage, seed);  
+    randomizeZerosKernel << <grid, block >> > (d_A, X, percentage, seed);
 
     cudaMemcpy(A, d_A, size, cudaMemcpyDeviceToHost);
 
@@ -153,3 +102,80 @@ void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long lo
     cudaDeviceSynchronize();
 }
 
+__device__ void swap(int& a, int& b) {
+    int temp = a;
+    a = b;
+    b = temp;
+}
+
+__global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
+    int current_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int current_y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    int idx = current_y * width + current_x;
+
+    curandState state;
+    curand_init(seed, idx, 0, &state);
+
+    // Check if the current cell is the end cell
+    if (current_x == end_x && current_y == end_y) {
+        // You've reached the end, you can handle it as needed
+        return;
+    }
+
+    // Define the possible moves (right, left, down, up)
+    int moves[4][2] = { {0, 1}, {0, -1}, {1, 0}, {-1, 0} };
+
+    // Fisher-Yates shuffle to traverse randomly
+    for (int i = 3; i > 0; --i) {
+        int j = curand_uniform(&state) * (i + 1);
+
+        // Swap moves[i] with moves[j]
+        swap(moves[i][0], moves[j][0]);
+        swap(moves[i][1], moves[j][1]);
+    }
+
+    // Check each possible move
+    for (int i = 0; i < 4; ++i) {
+        int new_x = current_x + moves[i][0];
+        int new_y = current_y + moves[i][1];
+
+        // Check if the new position is within bounds
+        if (new_x >= 0 && new_x < width && new_y >= 0 && new_y < height) {
+            int new_idx = new_y * width + new_x;
+
+            // Check if the new cell is open and not visited
+            if (maze_array[new_idx] == 0) {
+                // Mark the current cell as visited
+                maze_array[idx] = 3;
+
+                // Recursively call DFS on the new cell
+                dfs_kernel << <1, 1 >> > (maze_array, width, height, new_x, new_y, end_x, end_y, seed);
+
+                // If the end has been reached in the recursive call, exit the loop
+                if (maze_array[end_y * width + end_x] == 3) {
+                    return;
+                }
+            }
+        }
+    }
+}
+
+
+void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
+    int* d_maze_array;
+    cudaMalloc((void**)&d_maze_array, height * width * sizeof(int));
+    cudaMemcpy(d_maze_array, maze_array, height * width * sizeof(int), cudaMemcpyHostToDevice);
+
+    int dimx = 32;
+    int dimy = 32;
+    dim3 block(dimx, dimy);
+    dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
+
+    dfs_kernel << <grid, block >> > (d_maze_array, width, height, start_x, start_y, end_x, end_y, seed);
+
+    cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(int), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_maze_array);
+    cudaDeviceSynchronize();
+}
