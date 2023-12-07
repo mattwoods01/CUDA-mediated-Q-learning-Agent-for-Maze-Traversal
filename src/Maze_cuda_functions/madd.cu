@@ -44,7 +44,7 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, unsign
     curand_init(seed, idx, 0, &state);
 
     // Set the maze value randomly
-    maze_array[idx] = curand_uniform(&state) < 0.55 ? 0 : 1;
+    maze_array[idx] = curand_uniform(&state) < 0.5 ? 0 : 1;
 }
 
 void randomArrayCuda(int* maze_array, int height, int width, unsigned long long seed) {
@@ -124,7 +124,7 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
     }
 
     // Define the possible moves (right, left, down, up)
-    int moves[4][2] = { {0, 1}, {0, -1}, {1, 0}, {-1, 0} };
+    int moves[4][2] = { {0, height/2}, {0, -height/2}, {width/2, 0}, {-width/2, 0} };
 
     // Fisher-Yates shuffle to traverse randomly
     for (int i = 3; i > 0; --i) {
@@ -145,19 +145,23 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
             int new_idx = new_y * width + new_x;
 
             // Check if the new cell is open and not visited
-            if (maze_array[new_idx] == 0) {
+            if (maze_array[new_idx] == 1) {
                 // Mark the current cell as visited
-                maze_array[idx] = 3;
+                maze_array[idx] = 0;
 
                 // Recursively call DFS on the new cell
-                dfs_kernel << <1, 1 >> > (maze_array, width, height, new_x, new_y, end_x, end_y, seed);
+                dfs_kernel <<< 1, 1 >>> (maze_array, width, height, new_x, new_y, end_x, end_y, seed);
 
                 // If the end has been reached in the recursive call, exit the loop
-                if (maze_array[end_y * width + end_x] == 3) {
+                if (maze_array[end_y * width + end_x] == 0) {
                     return;
                 }
             }
         }
+    }
+    
+    if (maze_array[idx] == 0 && curand_uniform(&state) < .15){
+        maze_array[idx] = 1;
     }
 }
 

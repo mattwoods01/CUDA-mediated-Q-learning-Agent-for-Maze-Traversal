@@ -9,14 +9,14 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 20
-maze_y = 20
+maze_x = 50
+maze_y = 50
 start_coord = (0, 0)
 end_coord = (maze_x-1, maze_y-1)
 
 maze_layout = cu_matrix_add.random_array(maze_x, maze_y, random.randint(1, 1000))
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .5, random.randint(1, 1000))
-maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, 0, 0, maze_x-5, maze_y-5, random.randint(1, 1000))
+maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, 0, 0, maze_x-5, maze_y-5, random.randint(1, 10000))
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .20, random.randint(1, 10000))
 
 
 
@@ -31,7 +31,7 @@ actions = [(-1, 0), # Up: Moving one step up, reducing the row index by 1
 goal_reward = 100
 wall_penalty = -10
 step_penalty = -1
-num_episodes = 60
+num_episodes = 100
 # Create an instance of the maze and set the starting and ending positions
 
 # Visualize the maze
@@ -50,7 +50,7 @@ class Maze:
         plt.figure(figsize=(5,5))
 
         # Display the maze as an image in grayscale ('gray' colormap)
-        cmap = mcolors.ListedColormap(['white', 'black', 'red','blue'])
+        cmap = mcolors.ListedColormap(['white', 'black', 'red'])
         plt.imshow(self.maze, cmap=cmap)
 
         # Add start and goal positions as 'S' and 'G'
@@ -65,7 +65,7 @@ class Maze:
 
 maze = Maze(maze_layout, start_coord, end_coord)
 maze.show_maze()
-epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(100, 1.3, 0.01)
+epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(101, 1.3, 0.01)
 
 
 class QLearningAgent: 
@@ -171,7 +171,7 @@ def test_agent(agent, maze, num_episodes=1):
 
     # Visualize the maze using matplotlib
     # plt.figure(figsize=(5,5))
-    cmap = mcolors.ListedColormap(['white', 'black'])
+    cmap = mcolors.ListedColormap(['white', 'black', 'red'])
     plt.imshow(maze.maze, cmap=cmap)
 
     # Mark the start position (red 'S') and goal position (green 'G') in the maze
@@ -185,7 +185,7 @@ def test_agent(agent, maze, num_episodes=1):
     # Remove axis ticks and grid lines for a cleaner visualization
     plt.xticks([]), plt.yticks([])
     plt.grid(color='black', linewidth=2)
-    #plt.show()
+    plt.show()
 
     return episode_step, episode_reward, path
 
@@ -225,7 +225,7 @@ def train_agent(agent, maze, num_episodes=100):
     print(f"The average steps is: {average_steps}")
 
     plt.tight_layout()
-    #plt.show()
+    plt.show()
 
 
 
@@ -242,7 +242,7 @@ class MazeAnimation:
     def update(self, frame):
         state, path, episode, episode_step = frame
         self.ax.clear()
-        cmap = mcolors.ListedColormap(['white', 'black'])
+        cmap = mcolors.ListedColormap(['white', 'black', 'red'])
         self.ax.imshow(self.maze.maze, cmap=cmap)
         self.ax.text(self.maze.start_position[0], self.maze.start_position[1], 'S', ha='center', va='center', color='red', fontsize=20)
         self.ax.text(self.maze.goal_position[0], self.maze.goal_position[1], 'G', ha='center', va='center', color='green', fontsize=20)
