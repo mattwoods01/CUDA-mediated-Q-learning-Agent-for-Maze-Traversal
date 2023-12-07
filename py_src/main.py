@@ -9,15 +9,13 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 20
-maze_y = 20
-maze_layout = cu_matrix_add.random_array(maze_x,maze_y,random.randint(1, 1000))
-#print(maze_layout)
+maze_x = 10
+maze_y = 10
 
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .2, random.randint(1, 1000))
+maze_layout = cu_matrix_add.random_array(maze_x, maze_y, random.randint(1, 1000))
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .1, random.randint(1, 1000))
 
 print(maze_layout)
-
 
 # Actions the agent can take: Up, Down, Left, Right. Each action is represented as a tuple of two values: (row_change, column_change)
 actions = [(-1, 0), # Up: Moving one step up, reducing the row index by 1
@@ -47,7 +45,7 @@ class Maze:
         plt.figure(figsize=(5,5))
 
         # Display the maze as an image in grayscale ('gray' colormap)
-        cmap = mcolors.ListedColormap(['white', 'black', 'red'])
+        cmap = mcolors.ListedColormap(['white', 'black', 'red','blue'])
         plt.imshow(self.maze, cmap=cmap)
 
         # Add start and goal positions as 'S' and 'G'
