@@ -9,16 +9,34 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 20
-maze_y = 20
+maze_x = 50
+maze_y = 50
 start_coord = (0, 0)
 end_coord = (maze_x-1, maze_y-1)
 
-maze_layout = cu_matrix_add.random_array(maze_x, maze_y, random.randint(1, 1000))
-maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, 0, 0, maze_x-5, maze_y-5, random.randint(1, 10000))
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .20, random.randint(1, 10000))
+start_time = time.time()
+maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"Execution time: {execution_time} seconds")
 
+start_time = time.time()
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .35, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"Execution time: {execution_time} seconds")
 
+start_time = time.time()
+maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"Execution time: {execution_time} seconds")
+
+start_time = time.time()
+maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord)
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"Execution time: {execution_time} seconds")
 
 print(maze_layout)
 
@@ -50,7 +68,7 @@ class Maze:
         plt.figure(figsize=(5,5))
 
         # Display the maze as an image in grayscale ('gray' colormap)
-        cmap = mcolors.ListedColormap(['white', 'black', 'red'])
+        cmap = mcolors.ListedColormap(['white', 'black', 'green', 'blue', 'red'])
         plt.imshow(self.maze, cmap=cmap)
 
         # Add start and goal positions as 'S' and 'G'
@@ -65,11 +83,11 @@ class Maze:
 
 maze = Maze(maze_layout, start_coord, end_coord)
 maze.show_maze()
-epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(101, 1.3, 0.01)
+epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
 
 
 class QLearningAgent: 
-    def __init__(self, maze, learning_rate=0.7, discount_factor=0.9, exploration_start=1.3, exploration_end=0.01, num_episodes=100):
+    def __init__(self, maze, learning_rate=0.85, discount_factor=0.9, exploration_start=1.5, exploration_end=0.01, num_episodes=150):
         # Initialize the Q-learning agent with a Q-table containing all zeros
         # where the rows represent states, columns represent actions, and the third dimension is for each action (Up, Down, Left, Right)
         self.q_table = np.zeros((maze.maze_height, maze.maze_width, 4)) # 4 actions: Up, Down, Left, Right
@@ -97,9 +115,9 @@ class QLearningAgent:
         current_q_value = self.q_table[state][action]
         next_q_value = self.q_table[next_state][best_next_action]
 
+        new_q_value = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
 
-        #self.q_table[state][action] = cu_matrix_add.update_q_table_gpu(current_q_value, next_q_value, state_x, state_y, best_next_action, next_state_x, next_state_y, reward, self.learning_rate, self.discount_factor)[0]
-        self.q_table[state][action] = current_q_value + self.learning_rate * (reward + self.discount_factor * self.q_table[next_state][best_next_action] - current_q_value)
+        self.q_table[state][action] = new_q_value
  
 
 
@@ -171,7 +189,7 @@ def test_agent(agent, maze, num_episodes=1):
 
     # Visualize the maze using matplotlib
     # plt.figure(figsize=(5,5))
-    cmap = mcolors.ListedColormap(['white', 'black', 'red'])
+    cmap = mcolors.ListedColormap(['white', 'black', 'green', 'blue', 'red'])
     plt.imshow(maze.maze, cmap=cmap)
 
     # Mark the start position (red 'S') and goal position (green 'G') in the maze
@@ -242,7 +260,7 @@ class MazeAnimation:
     def update(self, frame):
         state, path, episode, episode_step = frame
         self.ax.clear()
-        cmap = mcolors.ListedColormap(['white', 'black', 'red'])
+        cmap = mcolors.ListedColormap(['white', 'black', 'green', 'blue', 'red'])
         self.ax.imshow(self.maze.maze, cmap=cmap)
         self.ax.text(self.maze.start_position[0], self.maze.start_position[1], 'S', ha='center', va='center', color='red', fontsize=20)
         self.ax.text(self.maze.goal_position[0], self.maze.goal_position[1], 'G', ha='center', va='center', color='green', fontsize=20)
@@ -276,7 +294,7 @@ execution_time = end_time - start_time
 print(f"Execution time: {execution_time} seconds")
 episode_step, episode_reward, path = test_agent(agent, maze, num_episodes=num_episodes)
 # Create an instance of the maze animation
-maze_animation = MazeAnimation(maze, agent, num_episodes)
+#maze_animation = MazeAnimation(maze, agent, num_episodes)
 
 
 
