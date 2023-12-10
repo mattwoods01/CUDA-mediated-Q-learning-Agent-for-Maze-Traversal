@@ -8,6 +8,10 @@ __global__ void randomizeZerosKernel(int* array, int size, float percentage, uns
 __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed, int dynamic_size);
 __global__ void guranteePathKernel(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y);
 
+__global__ void randomArrayKernel_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+__global__ void epsilonGreedyKernel_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
+__global__ void dfs_kernel_ctrl(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < num_episodes) {
@@ -297,7 +301,7 @@ void guranteePathCuda(int* maze_array, int height, int width, int start_x, int s
 ///////////////////////////Control functions
 
 //epsilonGreedykernel_non_async
-__global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
+__global__ void epsilonGreedyKernel_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
 
 int tid = blockIdx.x * blockDim.x + threadIdx.x;
 if (tid < num_episodes) {
@@ -306,7 +310,7 @@ if (tid < num_episodes) {
 }
 }
 
-void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
+void epsilonGreedyCUDA_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     float* d_exploration_rates;
 
     cudaMalloc((void**)&d_exploration_rates, num_episodes * sizeof(float));
@@ -324,12 +328,9 @@ void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float explora
     cudaFree(d_exploration_rates);
     cudaDeviceSynchronize();
 }
-// 
-// 
-// 
+
 //randomArrayKernel_non_shared
-// 
-__global__ void randomArrayKernel(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
+__global__ void randomArrayKernel_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
 int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
 int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -345,7 +346,7 @@ maze_array[end_y * width + end_x] = 3;
 
 }
 
-void randomArrayCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
+void randomArrayCuda_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
     int* d_maze_array;
 
     cudaMalloc((void**)&d_maze_array, height * width * sizeof(float));
@@ -363,12 +364,9 @@ void randomArrayCuda(int* maze_array, int height, int width, int start_x, int st
     cudaFree(d_maze_array);
     cudaDeviceSynchronize();
 }
-// 
-// 
+
 //dfs_kernel_non_shared
-
-
-__global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
+__global__ void dfs_kernel_ctrl(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
     int current_x = blockIdx.x * blockDim.x + threadIdx.x;
     int current_y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -411,7 +409,7 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
                     maze_array[new_idx] = 0;
                 }
                 // Recursively call DFS on the new cell
-                dfs_kernel << < 1, 1 >> > (maze_array, width, height, start_x, start_y, end_x, end_y, seed);
+                dfs_kernel_ctrl << < 1, 1 >> > (maze_array, width, height, start_x, start_y, end_x, end_y, seed);
 
                 // If the end has been reached in the recursive call, exit the loop
                 if (maze_array[end_y * width + end_x] == 4) {
@@ -425,7 +423,7 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
 
 }
 
-void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
+void dfsCuda_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
     int* d_maze_array;
     cudaMalloc((void**)&d_maze_array, height * width * sizeof(int));
     cudaMemcpy(d_maze_array, maze_array, height * width * sizeof(int), cudaMemcpyHostToDevice);
@@ -435,7 +433,7 @@ void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, i
     dim3 block(dimx, dimy);
     dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 
-    dfs_kernel << <grid, block >> > (d_maze_array, width, height, start_x, start_y, end_x, end_y, seed);
+    dfs_kernel_ctrl << <grid, block >> > (d_maze_array, width, height, start_x, start_y, end_x, end_y, seed);
 
     cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(int), cudaMemcpyDeviceToHost);
 
