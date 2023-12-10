@@ -9,89 +9,10 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 50
-maze_y = 50
-start_coord = (10, 10)
-end_coord = (maze_x-10, maze_y-10)
-
-start_time = time.time()
-maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"random maze Execution time: {execution_time} seconds")
-
-start_time = time.time()
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .35, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"randomize Execution time: {execution_time} seconds")
-
-start_time = time.time()
-maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"dfs Execution time: {execution_time} seconds")
-
-start_time = time.time()
-maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord)
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"gurantee path Execution time: {execution_time} seconds")
-
-start_time = time.time()
-epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"greedy epsilon Execution time: {execution_time} seconds")
-print(maze_layout)
-
-##########
-start_time = time.time()
-maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"random maze Execution time: {execution_time} seconds")
-
-start_time = time.time()
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .35, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"randomize Execution time: {execution_time} seconds")
-
-start_time = time.time()
-maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"dfs Execution time: {execution_time} seconds")
-
-start_time = time.time()
-maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord)
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"gurantee path Execution time: {execution_time} seconds")
-
-start_time = time.time()
-epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"greedy epsilon Execution time: {execution_time} seconds")
-print(maze_layout)
-
-
-
-# Actions the agent can take: Up, Down, Left, Right. Each action is represented as a tuple of two values: (row_change, column_change)
-actions = [(-1, 0), # Up: Moving one step up, reducing the row index by 1
-          (1, 0),   # Down: Moving on step down, increasing the row index by 1
-          (0, -1),  # Left: Moving one step to the left, reducing the column index by 1
-          (0, 1)]   # Right: Moving one step to the right, increasing the column index by 1
-
-goal_reward = 100
-wall_penalty = -10
-step_penalty = -1
-num_episodes = 100
-# Create an instance of the maze and set the starting and ending positions
-
-# Visualize the maze
+maze_x = 30
+maze_y = 30
+start_coord = (5, 5)
+end_coord = (maze_x-5, maze_y-5)
 
 class Maze:
     def __init__(self, maze, start_position, goal_position):
@@ -120,8 +41,62 @@ class Maze:
         # Show the plot
         plt.show()
 
+
+##########ctrl#########
+start_time = time.time()
+maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"random maze Execution time: {execution_time} seconds")
+
+
+start_time = time.time()
+maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"dfs Execution time: {execution_time} seconds")
+
+start_time = time.time()
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .20, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"randomize Execution time: {execution_time} seconds")
+
+
+start_time = time.time()
+maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"gurantee path Execution time: {execution_time} seconds")
+
+start_time = time.time()
+epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"greedy epsilon Execution time: {execution_time} seconds")
+
+
 maze = Maze(maze_layout, start_coord, end_coord)
+print(maze_layout)
 maze.show_maze()
+
+
+
+# Actions the agent can take: Up, Down, Left, Right. Each action is represented as a tuple of two values: (row_change, column_change)
+actions = [(-1, 0), # Up: Moving one step up, reducing the row index by 1
+          (1, 0),   # Down: Moving on step down, increasing the row index by 1
+          (0, -1),  # Left: Moving one step to the left, reducing the column index by 1
+          (0, 1)]   # Right: Moving one step to the right, increasing the column index by 1
+
+goal_reward = 100
+wall_penalty = -10
+step_penalty = -1
+num_episodes = 100
+# Create an instance of the maze and set the starting and ending positions
+
+# Visualize the maze
+
+
 
 
 
