@@ -18,26 +18,31 @@ start_time = time.time()
 maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
 end_time = time.time()
 execution_time = end_time - start_time
-print(f"Execution time: {execution_time} seconds")
+print(f"random maze Execution time: {execution_time} seconds")
 
 start_time = time.time()
 maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .35, random.randint(1, 10000))
 end_time = time.time()
 execution_time = end_time - start_time
-print(f"Execution time: {execution_time} seconds")
+print(f"randomize Execution time: {execution_time} seconds")
 
 start_time = time.time()
 maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
 end_time = time.time()
 execution_time = end_time - start_time
-print(f"Execution time: {execution_time} seconds")
+print(f"dfs Execution time: {execution_time} seconds")
 
 start_time = time.time()
 maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord)
 end_time = time.time()
 execution_time = end_time - start_time
-print(f"Execution time: {execution_time} seconds")
+print(f"gurantee path Execution time: {execution_time} seconds")
 
+start_time = time.time()
+epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"greedy epsilon Execution time: {execution_time} seconds")
 print(maze_layout)
 
 # Actions the agent can take: Up, Down, Left, Right. Each action is represented as a tuple of two values: (row_change, column_change)
@@ -83,7 +88,7 @@ class Maze:
 
 maze = Maze(maze_layout, start_coord, end_coord)
 maze.show_maze()
-epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
+
 
 
 class QLearningAgent: 

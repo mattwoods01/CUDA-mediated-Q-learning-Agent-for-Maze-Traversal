@@ -1,12 +1,14 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#include <curand_kernel.h>
+#include <cuda_runtime.h>
 #include <stdio.h>
 #include <iostream>
 
 namespace py = pybind11;
 
-extern void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
+extern void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end, cudaStream_t stream = 0);
 extern void randomArrayCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
 extern void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long long seed);
 extern void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
@@ -18,8 +20,15 @@ py::array_t<float> py_epsilonGreedyCUDA(int num_episodes, float exploration_star
     py::buffer_info buf_info = result_array.request();
     float* ptr = static_cast<float*>(buf_info.ptr);
 
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
     // Call the CUDA function
-    epsilonGreedyCUDA(ptr, num_episodes, exploration_start, exploration_end);
+    epsilonGreedyCUDA(ptr, num_episodes, exploration_start, exploration_end, stream);
+
+    cudaStreamSynchronize(stream);  // Synchronize with the stream
+
+    cudaStreamDestroy(stream);
 
     return result_array;
 }
