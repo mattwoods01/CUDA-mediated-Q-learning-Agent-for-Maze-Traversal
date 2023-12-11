@@ -1,22 +1,21 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
-#include <curand_kernel.h>
-#include <cuda_runtime.h>
 #include <stdio.h>
 #include <iostream>
 
 namespace py = pybind11;
 
-extern void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end, cudaStream_t stream = 0);
+extern void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 extern void randomArrayCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
 extern void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long long seed);
 extern void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
 extern void guranteePathCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+extern void copyCuda(int* maze_array, int* shared_array, int shared_width, int shared_height, int width, int height, unsigned long long seed);
 
 extern void epsilonGreedyCUDA_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 extern void randomArrayCuda_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
-//extern void dfsCuda_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+
 
 
 py::array_t<float> py_epsilonGreedyCUDA(int num_episodes, float exploration_start, float exploration_end) {
@@ -25,15 +24,9 @@ py::array_t<float> py_epsilonGreedyCUDA(int num_episodes, float exploration_star
     py::buffer_info buf_info = result_array.request();
     float* ptr = static_cast<float*>(buf_info.ptr);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-
     // Call the CUDA function
-    epsilonGreedyCUDA(ptr, num_episodes, exploration_start, exploration_end, stream);
+    epsilonGreedyCUDA(ptr, num_episodes, exploration_start, exploration_end);
 
-    cudaStreamSynchronize(stream);  // Synchronize with the stream
-
-    cudaStreamDestroy(stream);
 
     return result_array;
 }
@@ -44,15 +37,8 @@ py::array_t<float> py_epsilonGreedyCUDA_ctrl(int num_episodes, float exploration
     py::buffer_info buf_info = result_array.request();
     float* ptr = static_cast<float*>(buf_info.ptr);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-
     // Call the CUDA function
     epsilonGreedyCUDA_ctrl(ptr, num_episodes, exploration_start, exploration_end);
-
-    cudaStreamSynchronize(stream);  // Synchronize with the stream
-
-    cudaStreamDestroy(stream);
 
     return result_array;
 }
@@ -137,12 +123,25 @@ py::array_t<int> guranteePathWrapper(py::array_t<int> result_array, int x, int y
     return result_array;
 }
 
+py::array_t<int> copyWrapper(py::array_t<int> result_array, py::array_t<int> structure_array, int struct_x, int struct_y, int x, int y, unsigned long long seed) {
+    auto buf1 = result_array.request();
+    auto buf2 = structure_array.request();
+
+    int* A = (int*)buf1.ptr;
+    int* B = (int*)buf2.ptr;
+
+    copyCuda(A, B, struct_x, struct_y, x, y, seed);
+
+    return result_array;
+}
+
 PYBIND11_MODULE(cu_matrix_add, m) {
     m.def("epsilon_greedy_cuda", &py_epsilonGreedyCUDA, "Compute epsilon-greedy exploration rates using CUDA");
     m.def("random_array", &randomArrayWrapper, "Generate a random array of 1's and 0's using CUDA");
     m.def("randomizeZerosCuda", &randomizeZeroswrapper, "Randomly turn a percentage of 0's to 2's with CUDA");
     m.def("dfs", &dfswrapper, "Use DFS algorithm to generate a random path from start to end coordinates");
     m.def("gurantee_path", &guranteePathWrapper, "Gurantee Path to start and ending points");
+    m.def("generate_feature", &copyWrapper, "Generate user-inputted features radomely around maze");
 
     m.def("epsilon_greedy_cuda_ctrl", &py_epsilonGreedyCUDA_ctrl, "Compute epsilon-greedy exploration rates using CUDA (ctrl)");
     m.def("random_array_ctrl", &randomArrayWrapper_ctrl, "Generate a random array of 1's and 0's using CUDA (ctrl)");

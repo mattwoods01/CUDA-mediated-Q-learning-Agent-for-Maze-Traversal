@@ -10,7 +10,7 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
 
 __global__ void randomArrayKernel_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
 __global__ void epsilonGreedyKernel_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
-//__global__ void dfs_kernel_ctrl(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -20,8 +20,12 @@ __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, 
     }
 }
 
-void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end, cudaStream_t stream = 0) {
+void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     float* d_exploration_rates;
+    
+    cudaStream_t stream = 0;
+
+    cudaStreamCreate(&stream);
 
     cudaMalloc((void**)&d_exploration_rates, num_episodes * sizeof(float));
 
@@ -40,6 +44,11 @@ void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float explora
     cudaMemcpyAsync(exploration_rates, d_exploration_rates, num_episodes * sizeof(float), cudaMemcpyDeviceToHost, stream);
 
     cudaFree(d_exploration_rates);
+
+
+    cudaStreamSynchronize(stream);  // Synchronize with the stream
+
+    cudaStreamDestroy(stream);
 }
 
 __global__ void randomArrayKernel(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
@@ -192,6 +201,24 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
 
 }
 
+void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
+    int* d_maze_array;
+    cudaMalloc((void**)&d_maze_array, height * width * sizeof(int));
+    cudaMemcpy(d_maze_array, maze_array, height * width * sizeof(int), cudaMemcpyHostToDevice);
+
+    int dimx = 32;
+    int dimy = 32;
+    dim3 block(dimx, dimy);
+    dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
+
+    dfs_kernel << <grid, block >> > (d_maze_array, width, height, start_x, start_y, end_x, end_y, seed);
+
+    cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(int), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_maze_array);
+    cudaDeviceSynchronize();
+}
+
 __global__ void guaranteePathKernel(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
     int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -256,6 +283,69 @@ void guranteePathCuda(int* maze_array, int height, int width, int start_x, int s
     cudaFree(d_maze_array);
     cudaDeviceSynchronize();
 }
+
+__global__ void copyKernel(int* maze_array, int* shared_array, int shared_width, int shared_height, int width, int height, unsigned long long seed) {
+    extern __shared__ int shared_data[];
+
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int shared_size = shared_height * shared_width;
+
+    // Copy the predefined array from shared memory to random portions of the main array
+    if (tid < shared_size)
+    {
+        shared_data[tid] = shared_array[tid];
+    }
+
+    __syncthreads(); // Synchronize threads to make sure shared_data is populated
+
+    // Copy shared_data to random portions of the main array
+    if (tid < width * height)
+    {
+        int start_index = tid % (width * height - shared_size + 1);
+
+        for (int i = 0; i < shared_size; ++i)
+        {
+            maze_array[start_index + i] = shared_data[i];
+        }
+    }
+}
+
+void copyCuda(int* maze_array, int* shared_array, int shared_width, int shared_height, int width, int height, unsigned long long seed) {
+    // Declare device arrays
+    int* d_maze_array;
+    int* d_shared_array;
+
+    int maze_size = width * height;
+    int shared_size = shared_width * shared_height;
+
+    // Allocate device memory
+    cudaMalloc((void**)&d_maze_array, sizeof(int) * maze_size);
+    cudaMalloc((void**)&d_shared_array, sizeof(int) * shared_size);
+
+    // Copy data from host to device
+    cudaMemcpy(d_maze_array, maze_array, sizeof(int) * maze_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_shared_array, shared_array, sizeof(int) * shared_size, cudaMemcpyHostToDevice);
+
+    // Set up grid and block sizes
+    dim3 block(32);
+    dim3 grid((maze_size + blockDim.x - 1) / blockDim.x);
+
+    // Launch the kernel
+    copyKernel <<< grid, block, shared_size * sizeof(int) >>> (d_maze_array, d_shared_array, shared_width, shared_height, width, height, seed);
+
+    // Copy the result back to the host
+    cudaMemcpy(maze_array, d_maze_array, sizeof(int) * maze_size, cudaMemcpyDeviceToHost);
+
+    // Free device memory
+    cudaFree(d_maze_array);
+    cudaFree(d_shared_array);
+    cudaDeviceSynchronize();
+}
+
+
+
+
+
 
 ///////////////////////////Control functions
 
@@ -325,20 +415,3 @@ void randomArrayCuda_ctrl(int* maze_array, int height, int width, int start_x, i
 }
 
 
-void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
-    int* d_maze_array;
-    cudaMalloc((void**)&d_maze_array, height * width * sizeof(int));
-    cudaMemcpy(d_maze_array, maze_array, height * width * sizeof(int), cudaMemcpyHostToDevice);
-
-    int dimx = 32;
-    int dimy = 32;
-    dim3 block(dimx, dimy);
-    dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
-
-    dfs_kernel << <grid, block >> > (d_maze_array, width, height, start_x, start_y, end_x, end_y, seed);
-
-    cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(int), cudaMemcpyDeviceToHost);
-
-    cudaFree(d_maze_array);
-    cudaDeviceSynchronize();
-}

@@ -91,7 +91,7 @@ actions = [(-1, 0), # Up: Moving one step up, reducing the row index by 1
 goal_reward = 100
 wall_penalty = -10
 step_penalty = -1
-num_episodes = 100
+num_episodes = 150
 # Create an instance of the maze and set the starting and ending positions
 
 # Visualize the maze
