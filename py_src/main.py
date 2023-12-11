@@ -68,7 +68,7 @@ array_3x3 = np.ones((2, 2), dtype=int)
 array_3x3[1, 1] = 5
 
 start_time = time.time()
-maze_layout = cu_matrix_add.generate_feature(maze_layout, array_3x3, 2,  2, maze_x, maze_y, random.randint(1, 10000)) 
+maze_layout = cu_matrix_add.generate_feature(maze_layout, array_3x3, array_3x3.shape[0],  array_3x3.shape[1], maze_x, maze_y, random.randint(1, 10000)) 
 end_time = time.time()
 execution_time = end_time - start_time
 print(f"generate features Execution time: {execution_time} seconds")

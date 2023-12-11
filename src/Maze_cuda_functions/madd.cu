@@ -2,15 +2,6 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-__global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
-__global__ void randomArrayKernel(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
-__global__ void randomizeZerosKernel(int* array, int size, float percentage, unsigned long long seed);
-__global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
-__global__ void guaranteePathKernel(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
-
-__global__ void randomArrayKernel_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
-__global__ void epsilonGreedyKernel_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
-
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -246,23 +237,23 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
 
      //Set cells in the same row or column as start or end to 0 for only half of the width or height
     if (idx_y == start_y || idx_y == end_y) {
-        int start_col = (idx_y == start_y) ? 0 : width / 3;
-        int end_col = (idx_y == end_y) ? width : width / 3;
+        int start_col = (idx_y == start_y) ? 0 : width / 4;
+        int end_col = (idx_y == end_y) ? width : width / 4;
         for (int i = start_col; i < end_col; ++i) {
             maze_array[idx_y * width + i] = 0;
         }
     }
 
     if (idx_x == start_x || idx_x == end_x) {
-        int start_row = (idx_x == start_x) ? 0 : height / 3;
-        int end_row = (idx_x == end_x) ? height : height / 3;
+        int start_row = (idx_x == start_x) ? 0 : height / 4;
+        int end_row = (idx_x == end_x) ? height : height / 4;
         for (int i = start_row; i < end_row; ++i) {
             maze_array[i * width + idx_x] = 0;
         }
     }
 
     // Randomly select two additional spots and apply the same logic using curand
-    if (curand_uniform(&state) < 0.001) {
+    if (curand_uniform(&state) < 0.003) {
         int rand_x1 = curand(&state) % width;
         int rand_y1 = curand(&state) % height;
         for (int i = 0; i < width / 2; ++i) {
@@ -300,38 +291,47 @@ void guranteePathCuda(int* maze_array, int height, int width, int start_x, int s
 }
 
 __global__ void copyKernel(int* maze_array, int* shared_array, int shared_width, int shared_height, int width, int height, unsigned long long seed) {
-    extern __shared__ int shared_data[];
+    __shared__ int shared_data[3][3];
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int shared_size = shared_height * shared_width;
     int size = width * height;
 
-    // Copy the predefined array from shared memory to shared_data
-    if (tid < shared_size)
+    // Initialize shared_data with 1's in the outside and 0's in the middle and one random spot
+    if (threadIdx.x < 3 && threadIdx.y < 3)
     {
-        shared_data[tid] = shared_array[tid];
+        if (threadIdx.x == 1 && threadIdx.y == 1)
+        {
+            shared_data[threadIdx.y][threadIdx.x] = 2; // Middle value is 0
+        }
+        else
+        {
+            shared_data[threadIdx.y][threadIdx.x] = 1; // Outside values are 1
+        }
     }
 
     __syncthreads(); // Synchronize threads to make sure shared_data is populated
 
     curandState_t state;
-    curand_init(seed, tid * size, 0, &state);
+    curand_init(seed + tid, tid, 0, &state);
 
-    // Generate a random number between 0 and 1 using curand for each index in maze_array
-    for (int i = tid; i < width * height; i += blockDim.x * gridDim.x)
+    // Iterate through maze_array and copy shared_data to random indexes based on the random_value
+    for (int i = tid; i < size; i += blockDim.x * gridDim.x)
     {
         // Generate a random value
         float random_value = curand_uniform(&state);
 
-        // Generate a random index within the valid range
-        int start_index = curand(&state) % (size - shared_size + 1);
-
         // Copy shared_data to maze_array based on the random_value
-        if (random_value < 0.005)
+        if (random_value < 0.01)
         {
-            for (int j = 0; j < shared_size; ++j)
+            int start_index_x = i % (width - shared_width + 1);
+            int start_index_y = (i / width) % (height - shared_height + 1);
+
+            for (int j = 0; j < shared_height; ++j)
             {
-                maze_array[start_index + j] = shared_data[j];
+                for (int k = 0; k < shared_width; ++k)
+                {
+                    maze_array[(start_index_y + j) * width + (start_index_x + k)] = shared_data[j][k];
+                }
             }
         }
     }
@@ -360,7 +360,7 @@ void copyCuda(int* maze_array, int* shared_array, int shared_width, int shared_h
     dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 
     // Launch the kernel
-    copyKernel <<< grid, block, shared_size * sizeof(int) >>> (d_maze_array, d_shared_array, shared_width, shared_height, width, height, seed);
+    copyKernel << < grid, block >> > (d_maze_array, d_shared_array, shared_width, shared_height, width, height, seed);
 
     // Copy the result back to the host
     cudaMemcpy(maze_array, d_maze_array, sizeof(int) * maze_size, cudaMemcpyDeviceToHost);
@@ -371,8 +371,7 @@ void copyCuda(int* maze_array, int* shared_array, int shared_width, int shared_h
     cudaDeviceSynchronize();
 }
 
-
-///////////////////////////Control functions
+////////////////////////Control functions
 
 //epsilonGreedykernel_non_async
 __global__ void epsilonGreedyKernel_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
