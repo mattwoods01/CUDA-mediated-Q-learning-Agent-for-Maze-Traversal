@@ -1,5 +1,5 @@
 # Random Cuda Mediated maze generation for Q learning agent
-Project that utilizes CUDA programming and pybind to create GPU enhanced Q-learning maze traversal agent
+Project that utilizes CUDA programming and pybind to create test maze courses for Q-learning agent
 
 Dependencies:
 Numpy
