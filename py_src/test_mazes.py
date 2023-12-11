@@ -80,6 +80,17 @@ maze.show_maze()
 
 
 start_time = time.time()
+maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"gurantee path Execution time: {execution_time} seconds")
+
+
+maze = Maze(maze_layout, start_coord, end_coord)
+maze.show_maze()
+
+
+start_time = time.time()
 maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
 end_time = time.time()
 execution_time = end_time - start_time
@@ -90,12 +101,15 @@ print(f"dfs Execution time: {execution_time} seconds")
 maze = Maze(maze_layout, start_coord, end_coord)
 maze.show_maze()
 
-
 start_time = time.time()
-maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .1, random.randint(1, 10000))
 end_time = time.time()
 execution_time = end_time - start_time
-print(f"gurantee path Execution time: {execution_time} seconds")
+print(f"randomize Execution time: {execution_time} seconds")
+
+
+maze = Maze(maze_layout, start_coord, end_coord)
+maze.show_maze()
 
 
 
@@ -109,9 +123,6 @@ print(f"greedy epsilon Execution time: {execution_time} seconds")
 
 
 
-
-maze = Maze(maze_layout, start_coord, end_coord)
-maze.show_maze()
 
 
 

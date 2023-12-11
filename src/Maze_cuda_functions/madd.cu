@@ -4,16 +4,24 @@
 
 
 __global__ void epsilonGreedyKernel(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
+    __shared__ int shared_num_episodes;  // Declare shared memory variable
+
+    if (threadIdx.x == 0) {
+        shared_num_episodes = num_episodes;  // Store num_episodes in shared memory
+    }
+
+    __syncthreads();  // Ensure all threads have stored num_episodes in shared memory
+
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < num_episodes) {
-        float frac = static_cast<float>(tid) / static_cast<float>(num_episodes);
+    if (tid < shared_num_episodes) {
+        float frac = static_cast<float>(tid) / static_cast<float>(shared_num_episodes);
         exploration_rates[tid] = exploration_start * exp(frac * log(exploration_end / exploration_start));
     }
 }
 
 void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end) {
     float* d_exploration_rates;
-    
+
     cudaStream_t stream = 0;
 
     cudaStreamCreate(&stream);
@@ -28,14 +36,13 @@ void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float explora
     dim3 block(dimx, 1);
     dim3 grid(blocks_per_grid, 1);
 
-    // Launch kernel with specified stream
-    epsilonGreedyKernel << <grid, block, 0, stream >> > (d_exploration_rates, num_episodes, exploration_start, exploration_end);
+    // Launch kernel with specified stream and shared memory size
+    epsilonGreedyKernel << <grid, block, num_episodes * sizeof(int), stream >> > (d_exploration_rates, num_episodes, exploration_start, exploration_end);
 
     // Use cudaMemcpyAsync with specified stream
     cudaMemcpyAsync(exploration_rates, d_exploration_rates, num_episodes * sizeof(float), cudaMemcpyDeviceToHost, stream);
 
     cudaFree(d_exploration_rates);
-
 
     cudaStreamSynchronize(stream);  // Synchronize with the stream
 
@@ -65,7 +72,7 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, int st
     curand_init(seed, idx, 0, &state);
 
     // Use shared_start_x, shared_start_y, shared_end_x, shared_end_y instead of start_x, start_y, end_x, end_y
-    maze_array[idx] = curand_uniform(&state) < 0.35 ? 0 : 1;
+    maze_array[idx] = curand_uniform(&state) < 0.33 ? 0 : 1;
     // Avoid global memory access in the loop
     //if (idx_x == shared_start_x && idx_y == shared_start_y)
     maze_array[shared_start_y * width + shared_start_x] = 2;
