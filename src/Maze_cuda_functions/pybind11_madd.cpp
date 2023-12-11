@@ -16,8 +16,6 @@ extern void copyCuda(int* maze_array, int* shared_array, int shared_width, int s
 extern void epsilonGreedyCUDA_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
 extern void randomArrayCuda_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
 
-
-
 py::array_t<float> py_epsilonGreedyCUDA(int num_episodes, float exploration_start, float exploration_end) {
     // Create a NumPy array to hold the results
     py::array_t<float> result_array(num_episodes);

@@ -112,7 +112,7 @@ __global__ void randomizeZerosKernel(int* A, int size, float percentage, unsigne
     curand_init(seed, idx, 0, &state);
 
     if (A[idx] == 1 && curand_uniform(&state) < percentage) {
-        A[idx] = 5;
+        A[idx] = 0;
     }
 }
 
@@ -144,6 +144,12 @@ __device__ void swap(int& a, int& b) {
     b = temp;
 }
 
+__device__ void custom_swap(int& a, int& b) {
+    int temp = a;
+    a = b;
+    b = temp;
+}
+
 __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
     int current_x = blockIdx.x * blockDim.x + threadIdx.x;
     int current_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -160,18 +166,21 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
     }
 
     // Define the possible moves (right, left, down, up)
-    int moves[4][2] = { {0, height / 3}, {0, -height / 3}, {width / 3, 0}, {-width / 3, 0} };
+    int moves[4][2] = { {0, 1}, {0, -1}, {1, 0}, {-1, 0} };
 
     // Fisher-Yates shuffle to traverse randomly
-    for (int i = 3; i > 0; --i) {
+    for (int i = 4; i > 0; --i) {
         int j = curand_uniform(&state) * (i + 1);
 
-        // Swap moves[i] with moves[j]
-        swap(moves[i][0], moves[j][0]);
-        swap(moves[i][1], moves[j][1]);
+        // Custom swap moves[i] with moves[j]
+        custom_swap(moves[i][0], moves[j][0]);
+        custom_swap(moves[i][1], moves[j][1]);
     }
 
     // Check each possible move
+    int stack[50000];  // Use an array as a stack (adjust the size as needed)
+    int stack_top = -1; // Stack top initialization
+
     for (int i = 0; i < 4; ++i) {
         int new_x = current_x + moves[i][0];
         int new_y = current_y + moves[i][1];
@@ -180,25 +189,37 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
         if (new_x >= 0 && new_x < width && new_y >= 0 && new_y < height) {
             int new_idx = new_y * width + new_x;
 
-
             // Check if the new cell is open and not visited
             if (maze_array[new_idx] == 1) {
-                if (curand_uniform(&state) < 0.1) {
+                if (curand_uniform(&state) < 0.45) {
                     maze_array[new_idx] = 0;
                 }
-                // Recursively call DFS on the new cell
-                dfs_kernel << < 1, 1 >> > (maze_array, width, height, start_x, start_y, end_x, end_y, seed);
 
-                // If the end has been reached in the recursive call, exit the loop
-                if (maze_array[end_y * width + end_x] == 4) {
+                // Push onto the stack
+                stack[++stack_top] = new_idx;
+
+                // If the end has been reached, exit the loop
+                if (new_x == end_x && new_y == end_y) {
                     return;
                 }
             }
         }
     }
 
-    // Additional condition to prevent changing the starting cell
+    // Pop from the stack and iterate
+    while (stack_top >= 0) {
+        int popped_idx = stack[stack_top--];
+        int popped_x = popped_idx % width;
+        int popped_y = popped_idx / width;
 
+        // Continue DFS from the popped position
+        dfs_kernel << <1, 1 >> > (maze_array, width, height, popped_x, popped_y, end_x, end_y, seed);
+
+        // If the end has been reached in the recursive call, exit the loop
+        if (maze_array[end_y * width + end_x] == 4) {
+            return;
+        }
+    }
 }
 
 void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
@@ -229,18 +250,18 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
     curandState_t state;
     curand_init(seed, idx_x + idx_y * width, 0, &state);
 
-    // Set cells in the same row or column as start or end to 0 for only half of the width or height
+     //Set cells in the same row or column as start or end to 0 for only half of the width or height
     if (idx_y == start_y || idx_y == end_y) {
-        int start_col = (idx_y == start_y) ? 0 : width / 2;
-        int end_col = (idx_y == end_y) ? width : width / 2;
+        int start_col = (idx_y == start_y) ? 0 : width / 3;
+        int end_col = (idx_y == end_y) ? width : width / 3;
         for (int i = start_col; i < end_col; ++i) {
             maze_array[idx_y * width + i] = 0;
         }
     }
 
     if (idx_x == start_x || idx_x == end_x) {
-        int start_row = (idx_x == start_x) ? 0 : height / 2;
-        int end_row = (idx_x == end_x) ? height : height / 2;
+        int start_row = (idx_x == start_x) ? 0 : height / 3;
+        int end_row = (idx_x == end_x) ? height : height / 3;
         for (int i = start_row; i < end_row; ++i) {
             maze_array[i * width + idx_x] = 0;
         }
@@ -250,7 +271,7 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
     maze_array[end_idx] = 4;
 
     // Randomly select two additional spots and apply the same logic using curand
-    if (curand_uniform(&state) < 0.005) {
+    if (curand_uniform(&state) < 0.001) {
         int rand_x1 = curand(&state) % width;
         int rand_y1 = curand(&state) % height;
         for (int i = 0; i < width / 2; ++i) {
@@ -289,8 +310,9 @@ __global__ void copyKernel(int* maze_array, int* shared_array, int shared_width,
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int shared_size = shared_height * shared_width;
+    int size = width * height;
 
-    // Copy the predefined array from shared memory to random portions of the main array
+    // Copy the predefined array from shared memory to shared_data
     if (tid < shared_size)
     {
         shared_data[tid] = shared_array[tid];
@@ -298,14 +320,22 @@ __global__ void copyKernel(int* maze_array, int* shared_array, int shared_width,
 
     __syncthreads(); // Synchronize threads to make sure shared_data is populated
 
-    // Copy shared_data to random portions of the main array
-    if (tid < width * height)
-    {
-        int start_index = tid % (width * height - shared_size + 1);
+    curandState_t state;
+    curand_init(seed, tid * size, 0, &state);
 
-        for (int i = 0; i < shared_size; ++i)
+    // Generate a random number between 0 and 1 using curand for each index in maze_array
+    for (int i = tid; i < width * height; i += blockDim.x * gridDim.x)
+    {
+
+        // Copy shared_data to maze_array based on the random_value
+        if (curand_uniform(&state) < .01)
         {
-            maze_array[start_index + i] = shared_data[i];
+            int start_index = i % (size - shared_size + 1);
+
+            for (int j = 0; j < shared_size; ++j)
+            {
+                maze_array[start_index + j] = shared_data[j];
+            }
         }
     }
 }
@@ -327,8 +357,10 @@ void copyCuda(int* maze_array, int* shared_array, int shared_width, int shared_h
     cudaMemcpy(d_shared_array, shared_array, sizeof(int) * shared_size, cudaMemcpyHostToDevice);
 
     // Set up grid and block sizes
-    dim3 block(32);
-    dim3 grid((maze_size + blockDim.x - 1) / blockDim.x);
+    int dimx = 32;
+    int dimy = 32;
+    dim3 block(dimx, dimy);
+    dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 
     // Launch the kernel
     copyKernel <<< grid, block, shared_size * sizeof(int) >>> (d_maze_array, d_shared_array, shared_width, shared_height, width, height, seed);
@@ -341,10 +373,6 @@ void copyCuda(int* maze_array, int* shared_array, int shared_width, int shared_h
     cudaFree(d_shared_array);
     cudaDeviceSynchronize();
 }
-
-
-
-
 
 
 ///////////////////////////Control functions

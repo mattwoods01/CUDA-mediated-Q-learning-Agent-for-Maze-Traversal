@@ -9,8 +9,8 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 30
-maze_y = 30
+maze_x = 40
+maze_y = 40
 start_coord = (5, 5)
 end_coord = (maze_x-5, maze_y-5)
 
@@ -57,11 +57,21 @@ execution_time = end_time - start_time
 print(f"dfs Execution time: {execution_time} seconds")
 
 start_time = time.time()
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .20, random.randint(1, 10000))
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .4, random.randint(1, 10000))
 end_time = time.time()
 execution_time = end_time - start_time
 print(f"randomize Execution time: {execution_time} seconds")
 
+array_3x3 = np.ones((2, 2), dtype=int)
+
+# Set the middle element to 0
+array_3x3[1, 1] = 5
+
+start_time = time.time()
+maze_layout = cu_matrix_add.generate_feature(maze_layout, array_3x3, 2,  2, maze_x, maze_y, random.randint(1, 10000)) 
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"generate features Execution time: {execution_time} seconds")
 
 start_time = time.time()
 maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
@@ -74,6 +84,9 @@ epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
 end_time = time.time()
 execution_time = end_time - start_time
 print(f"greedy epsilon Execution time: {execution_time} seconds")
+
+
+
 
 
 maze = Maze(maze_layout, start_coord, end_coord)
