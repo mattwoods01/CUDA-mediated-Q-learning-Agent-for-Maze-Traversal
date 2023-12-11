@@ -1,58 +1,148 @@
-/*************************************************************************
-/* ECE 277: GPU Programmming 2020
-/* Author and Instructer: Cheolhong An
-/* Copyright 2020
-/* University of California, San Diego
-/*************************************************************************/
-
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-
-extern void cu_madd(int* A, int* B, int* C, int M, int N);
+#include <pybind11/stl.h>
+#include <stdio.h>
+#include <iostream>
 
 namespace py = pybind11;
 
+extern void epsilonGreedyCUDA(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
+extern void randomArrayCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+extern void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long long seed);
+extern void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+extern void guranteePathCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
+extern void copyCuda(int* maze_array, int* shared_array, int shared_width, int shared_height, int width, int height, unsigned long long seed);
 
-py::array_t<int> madd_wrapper(py::array_t<int> a1, py::array_t<int> a2) 
-{
-	auto buf1 = a1.request();
-	auto buf2 = a2.request();
+extern void epsilonGreedyCUDA_ctrl(float* exploration_rates, int num_episodes, float exploration_start, float exploration_end);
+extern void randomArrayCuda_ctrl(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed);
 
-	if (a1.ndim() != 2 || a2.ndim() != 2)
-		throw std::runtime_error("Number of dimensions must be two");
+py::array_t<float> py_epsilonGreedyCUDA(int num_episodes, float exploration_start, float exploration_end) {
+    // Create a NumPy array to hold the results
+    py::array_t<float> result_array(num_episodes);
+    py::buffer_info buf_info = result_array.request();
+    float* ptr = static_cast<float*>(buf_info.ptr);
 
-	if (buf1.size != buf2.size)
-		throw std::runtime_error("Input shapes must match");
+    // Call the CUDA function
+    epsilonGreedyCUDA(ptr, num_episodes, exploration_start, exploration_end);
 
-	// NxM matrix
-	int N = a1.shape()[0];
-	int M = a1.shape()[1];
-	printf("M=%d, N=%d\n", M, N);
 
-	auto result = py::array(py::buffer_info(
-		nullptr,            /* Pointer to data (nullptr -> ask NumPy to allocate!) */
-		sizeof(int),     /* Size of one item */
-		py::format_descriptor<int>::value, /* Buffer format */
-		buf1.ndim,          /* How many dimensions? */
-		{ N, M},  /* Number of elements for each dimension */
-		{ sizeof(int)*M, sizeof(int) }  /* Strides for each dimension */
-	));
-
-	auto buf3 = result.request();
-
-	int* A = (int*)buf1.ptr;
-	int* B = (int*)buf2.ptr;
-	int* C = (int*)buf3.ptr;
-
-	cu_madd(A, B, C, M, N);
-
-    return result;
+    return result_array;
 }
 
+py::array_t<float> py_epsilonGreedyCUDA_ctrl(int num_episodes, float exploration_start, float exploration_end) {
+    // Create a NumPy array to hold the results
+    py::array_t<float> result_array(num_episodes);
+    py::buffer_info buf_info = result_array.request();
+    float* ptr = static_cast<float*>(buf_info.ptr);
 
+    // Call the CUDA function
+    epsilonGreedyCUDA_ctrl(ptr, num_episodes, exploration_start, exploration_end);
+
+    return result_array;
+}
+
+py::array_t<int> randomArrayWrapper(int height, int width, py::tuple start_coord, py::tuple end_coord, unsigned long long seed) {
+    // Create a NumPy array to hold the results
+    py::array_t<int> result_array({ height, width });
+    py::buffer_info buf_info = result_array.request();
+    int* ptr = static_cast<int*>(buf_info.ptr);
+
+    int start_x = start_coord[0].cast<int>();
+    int start_y = start_coord[1].cast<int>();
+
+    int end_x = end_coord[0].cast<int>();
+    int end_y = end_coord[1].cast<int>();
+
+
+    // Call the CUDA function
+    randomArrayCuda(ptr, height, width, start_x, start_y, end_x, end_y, seed);
+
+    return result_array;
+}
+
+py::array_t<int> randomArrayWrapper_ctrl(int height, int width, py::tuple start_coord, py::tuple end_coord, unsigned long long seed) {
+    // Create a NumPy array to hold the results
+    py::array_t<int> result_array({ height, width });
+    py::buffer_info buf_info = result_array.request();
+    int* ptr = static_cast<int*>(buf_info.ptr);
+
+    int start_x = start_coord[0].cast<int>();
+    int start_y = start_coord[1].cast<int>();
+
+    int end_x = end_coord[0].cast<int>();
+    int end_y = end_coord[1].cast<int>();
+
+
+    // Call the CUDA function
+    randomArrayCuda_ctrl(ptr, height, width, start_x, start_y, end_x, end_y, seed);
+
+    return result_array;
+}
+
+py::array_t<int> randomizeZeroswrapper(py::array_t<int> result_array, int x, int y, float percentage, unsigned long long seed) {
+    auto buf1 = result_array.request();
+
+    int* A = (int*)buf1.ptr;
+
+    randomizeZerosCuda(A, x, y, percentage, seed);
+
+    return result_array;
+}
+
+py::array_t<int> dfswrapper(py::array_t<int> result_array, int x, int y, py::tuple start_coord, py::tuple end_coord, unsigned long long seed) {
+    auto buf1 = result_array.request();
+
+    int* A = (int*)buf1.ptr;
+
+    int start_x = start_coord[0].cast<int>();
+    int start_y = start_coord[1].cast<int>();
+
+    int end_x = end_coord[0].cast<int>();
+    int end_y = end_coord[1].cast<int>();
+
+    dfsCuda(A, x, y, start_x, start_y, end_x, end_y, seed);
+
+    return result_array;
+}
+
+py::array_t<int> guranteePathWrapper(py::array_t<int> result_array, int x, int y, py::tuple start_coord, py::tuple end_coord, unsigned long long seed) {
+    auto buf1 = result_array.request();
+
+    int* A = (int*)buf1.ptr;
+
+    int start_x = start_coord[0].cast<int>();
+    int start_y = start_coord[1].cast<int>();
+
+    int end_x = end_coord[0].cast<int>();
+    int end_y = end_coord[1].cast<int>();
+
+    guranteePathCuda(A, x, y, start_x, start_y, end_x, end_y, seed);
+
+    return result_array;
+}
+
+py::array_t<int> copyWrapper(py::array_t<int> result_array, py::array_t<int> structure_array, int struct_x, int struct_y, int x, int y, unsigned long long seed) {
+    auto buf1 = result_array.request();
+    auto buf2 = structure_array.request();
+
+    int* A = (int*)buf1.ptr;
+    int* B = (int*)buf2.ptr;
+
+    copyCuda(A, B, struct_x, struct_y, x, y, seed);
+
+    return result_array;
+}
 
 PYBIND11_MODULE(cu_matrix_add, m) {
-    m.def("madd", &madd_wrapper, "Add two NumPy arrays");
+    m.def("epsilon_greedy_cuda", &py_epsilonGreedyCUDA, "Compute epsilon-greedy exploration rates using CUDA");
+    m.def("random_array", &randomArrayWrapper, "Generate a random array of 1's and 0's using CUDA");
+    m.def("randomizeZerosCuda", &randomizeZeroswrapper, "Randomly turn a percentage of 0's to 2's with CUDA");
+    m.def("dfs", &dfswrapper, "Use DFS algorithm to generate a random path from start to end coordinates");
+    m.def("gurantee_path", &guranteePathWrapper, "Gurantee Path to start and ending points");
+    m.def("generate_feature", &copyWrapper, "Generate user-inputted features radomely around maze");
+
+    m.def("epsilon_greedy_cuda_ctrl", &py_epsilonGreedyCUDA_ctrl, "Compute epsilon-greedy exploration rates using CUDA (ctrl)");
+    m.def("random_array_ctrl", &randomArrayWrapper_ctrl, "Generate a random array of 1's and 0's using CUDA (ctrl)");
 
 #ifdef VERSION_INFO
     m.attr("__version__") = VERSION_INFO;
