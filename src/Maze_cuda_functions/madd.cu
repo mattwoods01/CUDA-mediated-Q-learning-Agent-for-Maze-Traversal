@@ -65,7 +65,7 @@ __global__ void randomArrayKernel(int* maze_array, int height, int width, int st
     curand_init(seed, idx, 0, &state);
 
     // Use shared_start_x, shared_start_y, shared_end_x, shared_end_y instead of start_x, start_y, end_x, end_y
-    maze_array[idx] = curand_uniform(&state) < 0.3 ? 0 : 1;
+    maze_array[idx] = curand_uniform(&state) < 0.35 ? 0 : 1;
     // Avoid global memory access in the loop
     //if (idx_x == shared_start_x && idx_y == shared_start_y)
     maze_array[shared_start_y * width + shared_start_x] = 2;
@@ -154,18 +154,15 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
     int moves[4][2] = { {0, 1}, {0, -1}, {1, 0}, {-1, 0} };
 
     // Fisher-Yates shuffle to traverse randomly
-    for (int i = 4; i > 0; --i) {
+    for (int i = 3; i > 0; --i) {
         int j = curand_uniform(&state) * (i + 1);
 
-        // Custom swap moves[i] with moves[j]
+        // Swap moves[i] with moves[j]
         custom_swap(moves[i][0], moves[j][0]);
         custom_swap(moves[i][1], moves[j][1]);
     }
 
     // Check each possible move
-    int stack[50000];  // Use an array as a stack (adjust the size as needed)
-    int stack_top = -1; // Stack top initialization
-
     for (int i = 0; i < 4; ++i) {
         int new_x = current_x + moves[i][0];
         int new_y = current_y + moves[i][1];
@@ -176,33 +173,17 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
 
             // Check if the new cell is open and not visited
             if (maze_array[new_idx] == 1) {
-                if (curand_uniform(&state) < 0.45) {
+                if (curand_uniform(&state) < 0.1) {
                     maze_array[new_idx] = 0;
                 }
+                // Recursively call DFS on the new cell with updated start position
+                dfs_kernel << <1, 1 >> > (maze_array, width, height, new_x, new_y, end_x, end_y, seed);
 
-                // Push onto the stack
-                stack[++stack_top] = new_idx;
-
-                // If the end has been reached, exit the loop
-                if (new_x == end_x && new_y == end_y) {
+                // If the end has been reached in the recursive call, exit the loop
+                if (maze_array[end_y * width + end_x] == 4) {
                     return;
                 }
             }
-        }
-    }
-
-    // Pop from the stack and iterate
-    while (stack_top >= 0) {
-        int popped_idx = stack[stack_top--];
-        int popped_x = popped_idx % width;
-        int popped_y = popped_idx / width;
-
-        // Continue DFS from the popped position
-        dfs_kernel << <1, 1 >> > (maze_array, width, height, popped_x, popped_y, end_x, end_y, seed);
-
-        // If the end has been reached in the recursive call, exit the loop
-        if (maze_array[end_y * width + end_x] == 4) {
-            return;
         }
     }
 }
@@ -253,7 +234,7 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
     }
 
     // Randomly select two additional spots and apply the same logic using curand
-    if (curand_uniform(&state) < 0.003) {
+    if (curand_uniform(&state) < 0.001) {
         int rand_x1 = curand(&state) % width;
         int rand_y1 = curand(&state) % height;
         for (int i = 0; i < width / 2; ++i) {
