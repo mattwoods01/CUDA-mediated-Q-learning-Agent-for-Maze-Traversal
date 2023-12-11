@@ -138,12 +138,6 @@ void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long lo
     cudaDeviceSynchronize();
 }
 
-__device__ void swap(int& a, int& b) {
-    int temp = a;
-    a = b;
-    b = temp;
-}
-
 __device__ void custom_swap(int& a, int& b) {
     int temp = a;
     a = b;
@@ -267,9 +261,6 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
         }
     }
 
-    maze_array[start_idx] = 3;
-    maze_array[end_idx] = 4;
-
     // Randomly select two additional spots and apply the same logic using curand
     if (curand_uniform(&state) < 0.001) {
         int rand_x1 = curand(&state) % width;
@@ -284,6 +275,9 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
             maze_array[rand_y2 * width + i] = 0;
         }
     }
+
+    maze_array[start_idx] = 3;
+    maze_array[end_idx] = 4;
 }
 
 void guranteePathCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
@@ -326,12 +320,15 @@ __global__ void copyKernel(int* maze_array, int* shared_array, int shared_width,
     // Generate a random number between 0 and 1 using curand for each index in maze_array
     for (int i = tid; i < width * height; i += blockDim.x * gridDim.x)
     {
+        // Generate a random value
+        float random_value = curand_uniform(&state);
+
+        // Generate a random index within the valid range
+        int start_index = curand(&state) % (size - shared_size + 1);
 
         // Copy shared_data to maze_array based on the random_value
-        if (curand_uniform(&state) < .01)
+        if (random_value < 0.005)
         {
-            int start_index = i % (size - shared_size + 1);
-
             for (int j = 0; j < shared_size; ++j)
             {
                 maze_array[start_index + j] = shared_data[j];
