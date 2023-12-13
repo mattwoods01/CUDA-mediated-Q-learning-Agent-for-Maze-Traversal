@@ -43,70 +43,45 @@ class Maze:
 
 
 
-start_time = time.time()
-maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"random maze Execution time: {execution_time} seconds")
+#start_time = time.time()
 
-maze = Maze(maze_layout, start_coord, end_coord)
-maze.show_maze()
+#end_time = time.time()
+#execution_time = end_time - start_time
+#print(f"random maze Execution time: {execution_time} seconds")
 
-
-start_time = time.time()
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .2, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"randomize Execution time: {execution_time} seconds")
+#maze = Maze(maze_layout, start_coord, end_coord)
+#maze.show_maze()
 
 
-maze = Maze(maze_layout, start_coord, end_coord)
-maze.show_maze()
+total_ls = []
+for i in range(5):
+    execution_time_ls = []
+    for i in range(10):     
+        start_time = time.time()
+        for j in range(10000):
+            maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
+            maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .2, random.randint(1, 10000))
+            maze_layout = cu_matrix_add.generate_feature(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+            maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+            maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+            epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+        execution_time_ls.append(execution_time)
+        #print(f" Execution time: {execution_time} seconds")
+
+    average = sum(execution_time_ls) / len(execution_time_ls)
+    total_ls.append(average)
+    print(average)
+
+total_average = sum(total_ls) / len(total_ls)
+print(total_average)
 
 
-start_time = time.time()
-maze_layout = cu_matrix_add.generate_feature(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000)) 
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"generate features Execution time: {execution_time} seconds")
-
-maze = Maze(maze_layout, start_coord, end_coord)
-maze.show_maze()
+    
 
 
-start_time = time.time()
-maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"gurantee path Execution time: {execution_time} seconds")
-
-
-maze = Maze(maze_layout, start_coord, end_coord)
-maze.show_maze()
-
-
-
-start_time = time.time()
-maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"dfs Execution time: {execution_time} seconds")
-
-
-
-maze = Maze(maze_layout, start_coord, end_coord)
-maze.show_maze()
-
-
-
-
-
-
-start_time = time.time()
-epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"greedy epsilon Execution time: {execution_time} seconds")
 
 
 

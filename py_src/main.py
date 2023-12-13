@@ -9,8 +9,8 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 40
-maze_y = 40
+maze_x = 50
+maze_y = 50
 start_coord = (5, 5)
 end_coord = (maze_x-5, maze_y-5)
 
@@ -42,12 +42,48 @@ class Maze:
         plt.show()
 
 
-##########ctrl#########
+
 start_time = time.time()
 maze_layout = cu_matrix_add.random_array(maze_x, maze_y, start_coord, end_coord, random.randint(1, 1000))
 end_time = time.time()
 execution_time = end_time - start_time
 print(f"random maze Execution time: {execution_time} seconds")
+
+maze = Maze(maze_layout, start_coord, end_coord)
+maze.show_maze()
+
+
+start_time = time.time()
+maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .2, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"randomize Execution time: {execution_time} seconds")
+
+
+maze = Maze(maze_layout, start_coord, end_coord)
+maze.show_maze()
+
+
+start_time = time.time()
+maze_layout = cu_matrix_add.generate_feature(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000)) 
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"generate features Execution time: {execution_time} seconds")
+
+maze = Maze(maze_layout, start_coord, end_coord)
+maze.show_maze()
+
+
+start_time = time.time()
+maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"gurantee path Execution time: {execution_time} seconds")
+
+
+maze = Maze(maze_layout, start_coord, end_coord)
+maze.show_maze()
+
 
 
 start_time = time.time()
@@ -56,28 +92,11 @@ end_time = time.time()
 execution_time = end_time - start_time
 print(f"dfs Execution time: {execution_time} seconds")
 
-start_time = time.time()
-maze_layout = cu_matrix_add.randomizeZerosCuda(maze_layout, maze_x, maze_y, .4, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"randomize Execution time: {execution_time} seconds")
 
-array_3x3 = np.ones((2, 2), dtype=int)
 
-# Set the middle element to 0
-array_3x3[1, 1] = 5
+maze = Maze(maze_layout, start_coord, end_coord)
+maze.show_maze()
 
-start_time = time.time()
-maze_layout = cu_matrix_add.generate_feature(maze_layout, array_3x3, array_3x3.shape[0],  array_3x3.shape[1], maze_x, maze_y, random.randint(1, 10000)) 
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"generate features Execution time: {execution_time} seconds")
-
-start_time = time.time()
-maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"gurantee path Execution time: {execution_time} seconds")
 
 start_time = time.time()
 epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
@@ -85,13 +104,6 @@ end_time = time.time()
 execution_time = end_time - start_time
 print(f"greedy epsilon Execution time: {execution_time} seconds")
 
-
-
-
-
-maze = Maze(maze_layout, start_coord, end_coord)
-print(maze_layout)
-maze.show_maze()
 
 
 

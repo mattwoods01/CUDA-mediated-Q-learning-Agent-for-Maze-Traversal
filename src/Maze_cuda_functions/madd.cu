@@ -279,22 +279,22 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
     curandState_t state;
     curand_init(seed, idx_x + idx_y * width, 0, &state);
 
-    // Set cells in the same row as start or end to 0
+    // Set half of the cells in the same row as start or end to 0
     if (idx_y == start_y || idx_y == end_y) {
-        for (int i = 0; i < width; ++i) {
+        for (int i = 0; i < width; i +=2) {
             maze_array[idx_y * width + i] = 0;
         }
     }
 
-    // Set cells in the same column as start or end to 0
+    // Set half of the cells in the same column as start or end to 0
     if (idx_x == start_x || idx_x == end_x) {
-        for (int i = 0; i < height; ++i) {
+        for (int i = 0; i < height; i +=2) {
             maze_array[i * width + idx_x] = 0;
         }
     }
 
     // Randomly select two additional spots and apply the same logic using curand
-    if (curand_uniform(&state) < 0.0005) {
+    if (curand_uniform(&state) < 0.001) {
         for (int i = 0; i < width; ++i) {
             maze_array[idx_y * width + i] = 0;
         }
