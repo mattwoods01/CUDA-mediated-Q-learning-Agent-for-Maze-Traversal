@@ -9,8 +9,8 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 60
-maze_y = 60
+maze_x = 50
+maze_y = 50
 start_coord = (5, 5)
 end_coord = (maze_x-5, maze_y-5)
 

@@ -150,10 +150,21 @@ void randomizeZerosCuda(int* A, int X, int Y, float percentage, unsigned long lo
     cudaDeviceSynchronize();
 }
 
-__device__ void custom_swap(int& a, int& b) {
-    int temp = a;
-    a = b;
-    b = temp;
+__global__ void convertZerosToOneKernel(int* maze_array, int width, int height) {
+    int current_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int current_y = blockIdx.y * blockDim.y + threadIdx.y;
+    int idx = current_y * width + current_x;
+
+    // Bounds check
+    if (current_x < width && current_y < height) {
+        if (maze_array[idx] == 0) {
+            maze_array[idx] = 1;
+        }
+
+        if (maze_array[idx] == 10) {
+            maze_array[idx] = 0;
+        }
+    }
 }
 
 __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
@@ -182,7 +193,7 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
 
         // Mark the current cell as visited
         int current_idx = current_y * width + current_x;
-        maze_array[current_idx] = 0; // Or another value to mark as visited
+        maze_array[current_idx] = 10; // Or another value to mark as visited
 
         // Check if the current cell is the end cell
         if (current_x == end_x && current_y == end_y) {
@@ -227,6 +238,11 @@ __global__ void dfs_kernel(int* maze_array, int width, int height, int start_x, 
             }
         }
     }
+
+    maze_array[start_y * width + start_x] = 2;
+
+    //if (idx_x == shared_end_x && idx_y == shared_end_y)
+    maze_array[end_y * width + end_x] = 3;
 }
 
 void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, int end_x, int end_y, unsigned long long seed) {
@@ -240,6 +256,7 @@ void dfsCuda(int* maze_array, int height, int width, int start_x, int start_y, i
     dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 
     dfs_kernel << <grid, block >> > (d_maze_array, width, height, start_x, start_y, end_x, end_y, seed);
+    convertZerosToOneKernel << < grid, block >> > (d_maze_array, width, height);
 
     cudaMemcpy(maze_array, d_maze_array, height * width * sizeof(int), cudaMemcpyDeviceToHost);
 
