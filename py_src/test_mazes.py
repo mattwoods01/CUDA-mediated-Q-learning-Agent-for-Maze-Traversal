@@ -64,7 +64,7 @@ for i in range(5):
             maze_layout = cu_matrix_add.generate_feature(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
             maze_layout = cu_matrix_add.gurantee_path(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
             maze_layout = cu_matrix_add.dfs(maze_layout, maze_x, maze_y, start_coord, end_coord, random.randint(1, 10000))
-            epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
+            #epsilon_rates = cu_matrix_add.epsilon_greedy_cuda_ctrl(151, 1.5, 0.01)
 
         end_time = time.time()
         execution_time = end_time - start_time
