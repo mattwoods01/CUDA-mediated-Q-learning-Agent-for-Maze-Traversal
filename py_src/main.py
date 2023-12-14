@@ -9,8 +9,8 @@ import cu_matrix_add
 import random
 
 # Create any maze layout you'd like, here's an example
-maze_x = 50
-maze_y = 50
+maze_x = 30
+maze_y = 30
 start_coord = (5, 5)
 end_coord = (maze_x-5, maze_y-5)
 
@@ -98,8 +98,14 @@ maze = Maze(maze_layout, start_coord, end_coord)
 maze.show_maze()
 
 
+goal_reward = 100
+wall_penalty = -10
+step_penalty = -1
+num_episodes = 200
+
+
 start_time = time.time()
-epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(151, 1.5, 0.01)
+epsilon_rates = cu_matrix_add.epsilon_greedy_cuda(num_episodes, 1.5, 0.01)
 end_time = time.time()
 execution_time = end_time - start_time
 print(f"greedy epsilon Execution time: {execution_time} seconds")
@@ -113,10 +119,7 @@ actions = [(-1, 0), # Up: Moving one step up, reducing the row index by 1
           (0, -1),  # Left: Moving one step to the left, reducing the column index by 1
           (0, 1)]   # Right: Moving one step to the right, increasing the column index by 1
 
-goal_reward = 100
-wall_penalty = -10
-step_penalty = -1
-num_episodes = 150
+
 # Create an instance of the maze and set the starting and ending positions
 
 # Visualize the maze
@@ -137,7 +140,7 @@ class QLearningAgent:
         self.num_episodes = num_episodes
 
     def get_action(self, state, current_episode): # State is tuple representing where agent is in maze (x, y)
-        exploration_rate = epsilon_rates[current_episode]
+        exploration_rate = epsilon_rates[current_episode-1]
 
         # Select an action for the given state either randomly (exploration) or using the Q-table (exploitation)
         if np.random.rand() < exploration_rate:
@@ -293,8 +296,8 @@ class MazeAnimation:
         self.num_episodes = num_episodes
         self.fig, self.ax = plt.subplots(figsize=(5, 5))
         # self.path = []
-        self.animation = FuncAnimation(self.fig, self.update, frames=self.explore_maze, repeat=False, blit=False, interval=500)
-        #plt.show()
+        self.animation = FuncAnimation(self.fig, self.update, frames=self.explore_maze, repeat=False, blit=False, interval=300)
+        plt.show()
 
     def update(self, frame):
         state, path, episode, episode_step = frame
@@ -333,7 +336,7 @@ execution_time = end_time - start_time
 print(f"Execution time: {execution_time} seconds")
 episode_step, episode_reward, path = test_agent(agent, maze, num_episodes=num_episodes)
 # Create an instance of the maze animation
-#maze_animation = MazeAnimation(maze, agent, num_episodes)
+maze_animation = MazeAnimation(maze, agent, num_episodes)
 
 
 

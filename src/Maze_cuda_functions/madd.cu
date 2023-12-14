@@ -281,14 +281,14 @@ __global__ void guaranteePathKernel(int* maze_array, int height, int width, int 
 
     // Set half of the cells in the same row as start or end to 0
     if (idx_y == start_y || idx_y == end_y) {
-        for (int i = 0; i < width; i +=1) {
+        for (int i = 0; i < width; i +=2) {
             maze_array[idx_y * width + i] = 0;
         }
     }
 
     // Set half of the cells in the same column as start or end to 0
     if (idx_x == start_x || idx_x == end_x) {
-        for (int i = 0; i < height; i +=1) {
+        for (int i = 0; i < height; i +=2) {
             maze_array[i * width + idx_x] = 0;
         }
     }
