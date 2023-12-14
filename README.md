@@ -12,4 +12,4 @@ Python3.9
 2. Use Visual studio 2019
 3. generate and open project
 4. build project using release settings
-5. Run pythong scripts
+5. Run python scripts
